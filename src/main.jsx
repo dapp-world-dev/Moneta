@@ -448,12 +448,17 @@ function App() {
                       <span className="card-label">Total saldo bersih</span>
                       <button
                         type="button"
-                        className="mini-button"
+                        role="switch"
+                        aria-checked={hideBalances}
+                        className={`eye-switch ${hideBalances ? 'is-hidden' : ''}`}
                         onClick={() => setHideBalances((v) => !v)}
                         aria-label={hideBalances ? 'Tampilkan saldo' : 'Sembunyikan saldo'}
                         title={hideBalances ? 'Tampilkan saldo' : 'Sembunyikan saldo'}
                       >
-                        {hideBalances ? <EyeOff size={15} /> : <Eye size={15} />}
+                        <span className="eye-switch-thumb">
+                          <span className="eye-icon eye-open"><Eye size={12} /></span>
+                          <span className="eye-icon eye-closed"><EyeOff size={12} /></span>
+                        </span>
                       </button>
                     </div>
                     <button
@@ -464,7 +469,7 @@ function App() {
                       <span className="status-dot" /> {accounts.length} akun aktif
                     </button>
                   </div>
-                  <div className="balance-value">{masked(totalBalance)}</div>
+                  <div className={`balance-value ${hideBalances ? 'is-masked' : ''}`}>{masked(totalBalance)}</div>
                   <div className="balance-meta">
                     {summary.netChangePct !== null ? (
                       <>
