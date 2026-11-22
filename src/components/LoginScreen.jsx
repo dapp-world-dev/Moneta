@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Eye, EyeOff, Lock, User } from 'lucide-react';
 
 export function LoginScreen({ onSuccess, notice = '' }) {
-  const [mode, setMode] = useState('login'); // 'login' | 'register'
+  const [mode, setMode] = useState('login');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -40,14 +40,14 @@ export function LoginScreen({ onSuccess, notice = '' }) {
   }
 
   return (
-    <div className="login-page">
+    <main className="login-page">
       <form className="login-card" onSubmit={handleSubmit}>
         <div className="login-brand">
-          <span className="brand-mark">M</span>
+          <span className="brand-mark" aria-hidden="true">M</span>
           <span>Moneta</span>
         </div>
 
-        <div className="auth-tabs" role="tablist">
+        <div className="segmented-control" role="tablist" aria-label="Pilih mode autentikasi">
           <button
             type="button"
             role="tab"
@@ -68,25 +68,25 @@ export function LoginScreen({ onSuccess, notice = '' }) {
           </button>
         </div>
 
-        <h1>{isRegister ? 'Buat akun barumu' : 'Selamat datang kembali'}</h1>
+        <h1>{isRegister ? 'Buat akun Moneta' : 'Selamat datang kembali'}</h1>
         <p className="login-sub">
           {isRegister
-            ? 'Cukup pakai username dan password untuk mulai mencatat keuangan pribadimu.'
-            : 'Masuk untuk mengakses dashboard dan laporan keuanganmu.'}
+            ? 'Gunakan username dan password untuk memulai ruang keuangan pribadimu.'
+            : 'Masuk untuk memantau saldo, transaksi, dan anggaranmu.'}
         </p>
 
-        {notice && !error && <div className="form-notice">{notice}</div>}
-        {error && <div className="form-error">{error}</div>}
+        {notice && !error && <div className="form-notice" role="status">{notice}</div>}
+        {error && <div className="form-error" role="alert">{error}</div>}
 
         <label className="login-field">
           <span>Username</span>
           <div className="password-input-wrap">
-            <User size={15} className="password-lead" />
+            <User size={16} className="password-lead" aria-hidden="true" />
             <input
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="cth. John Doe"
+              placeholder="Username"
               autoComplete="username"
               minLength={isRegister ? 3 : 1}
               required
@@ -98,12 +98,12 @@ export function LoginScreen({ onSuccess, notice = '' }) {
         <label className="login-field">
           <span>Password {isRegister && <em className="optional">(min. 6 karakter)</em>}</span>
           <div className="password-input-wrap">
-            <Lock size={15} className="password-lead" />
+            <Lock size={16} className="password-lead" aria-hidden="true" />
             <input
               type={showPassword ? 'text' : 'password'}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Masukkan password..."
+              placeholder="Password"
               autoComplete={isRegister ? 'new-password' : 'current-password'}
               minLength={isRegister ? 6 : 1}
               required
@@ -114,7 +114,7 @@ export function LoginScreen({ onSuccess, notice = '' }) {
               onClick={() => setShowPassword((v) => !v)}
               aria-label={showPassword ? 'Sembunyikan password' : 'Lihat password'}
             >
-              {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              {showPassword ? <EyeOff size={16} aria-hidden="true" /> : <Eye size={16} aria-hidden="true" />}
             </button>
           </div>
         </label>
@@ -137,12 +137,12 @@ export function LoginScreen({ onSuccess, notice = '' }) {
             <>
               Belum punya akun?{' '}
               <button type="button" className="inline-switch" onClick={() => switchMode('register')}>
-                Daftar sekarang
+                Daftar akun baru
               </button>
             </>
           )}
         </div>
       </form>
-    </div>
+    </main>
   );
 }

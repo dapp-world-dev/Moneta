@@ -27,35 +27,14 @@ export const INCOME_CATEGORIES = [
   'Lainnya',
 ];
 
-export const CATEGORY_ICONS = {
-  Makanan: '🍜',
-  Food: '🍜',
-  Transportasi: '↗',
-  Transport: '↗',
-  Belanja: '◌',
-  Shopping: '◌',
-  Tagihan: '▣',
-  Bills: '▣',
-  Hiburan: '◉',
-  Entertainment: '◉',
-  Kesehatan: '✚',
-  Gaji: '↙',
-  Salary: '↙',
-  Freelance: '✦',
-  Investasi: '◈',
-  Bonus: '★',
-  Transfer: '↔',
-  Lainnya: '•',
-};
-
 export const CATEGORY_COLORS = [
-  '#a9db48',
-  '#7daddf',
-  '#f0b16e',
-  '#b291cf',
-  '#5cc2a6',
-  '#e78350',
-  '#8c9690',
+  '#84cc16',
+  '#3b82f6',
+  '#f59e0b',
+  '#8b5cf6',
+  '#10b981',
+  '#f97316',
+  '#64748b',
 ];
 
 export const PERIOD_PRESETS = [
@@ -67,12 +46,12 @@ export const PERIOD_PRESETS = [
 ];
 
 export const THEMES = [
-  { id: 'modern', name: 'Modern', desc: 'Bersih & limau', swatches: ['#17191a', '#f4f5f2', '#d2f975'] },
-  { id: 'dark', name: 'Dark', desc: 'Mode gelap fokus', swatches: ['#0b0d0c', '#171b1a', '#c8f560'] },
-  { id: 'cool', name: 'Cool', desc: 'Biru modern & segar', swatches: ['#0f172a', '#f1f5f9', '#38bdf8'] },
-  { id: 'calm', name: 'Calm', desc: 'Hijau sage & hangat', swatches: ['#1f2c27', '#f6f4ef', '#a7e3be'] },
-  { id: 'cute', name: 'Cute', desc: 'Nuansa pink lembut', swatches: ['#331d2c', '#fdf4f7', '#ff9ec7'] },
-  { id: 'lavender', name: 'Lavender', desc: 'Ungu pastel elegan', swatches: ['#1e1b38', '#f5f3ff', '#c4b5fd'] },
+  { id: 'modern', name: 'Modern', desc: 'Terang & aksen limau', swatches: ['#ffffff', '#f3f4f2', '#c8f35b'] },
+  { id: 'dark', name: 'Dark', desc: 'Mode gelap fokus', swatches: ['#0d0f11', '#171a1e', '#c8f35b'] },
+  { id: 'cool', name: 'Cool', desc: 'Biru modern & segar', swatches: ['#ffffff', '#f1f5f9', '#0075eb'] },
+  { id: 'calm', name: 'Calm', desc: 'Hijau sage & hangat', swatches: ['#fffdf9', '#f5f2eb', '#2f855a'] },
+  { id: 'cute', name: 'Cute', desc: 'Nuansa pink lembut', swatches: ['#ffffff', '#fdf2f6', '#ec4899'] },
+  { id: 'lavender', name: 'Lavender', desc: 'Ungu pastel elegan', swatches: ['#ffffff', '#f5f3ff', '#7c3aed'] },
 ];
 
 export function formatMoney(value, short = false, signed = false) {
@@ -114,19 +93,47 @@ export function currentMonth() {
   return new Date().toISOString().slice(0, 7);
 }
 
-export function todayIso() {
-  const now = new Date();
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, '0');
-  const d = String(now.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
-}
-
 function toIsoDate(date) {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');
   const d = String(date.getDate()).padStart(2, '0');
   return `${y}-${m}-${d}`;
+}
+
+export function todayIso() {
+  return toIsoDate(new Date());
+}
+
+export function relativeDateHeading(isoDate) {
+  const now = new Date();
+  const today = toIsoDate(now);
+  const yesterday = toIsoDate(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1));
+  if (isoDate === today) return 'Hari ini';
+  if (isoDate === yesterday) return 'Kemarin';
+  return new Date(`${isoDate}T00:00:00`).toLocaleDateString('id-ID', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
+export function groupTransactionsByDate(transactions) {
+  const map = new Map();
+  for (const item of transactions) {
+    if (!map.has(item.date)) {
+      map.set(item.date, {
+        date: item.date,
+        label: relativeDateHeading(item.date),
+        items: [],
+        dailyNet: 0,
+      });
+    }
+    const group = map.get(item.date);
+    group.items.push(item);
+    group.dailyNet += item.type === 'income' ? item.amount : -item.amount;
+  }
+  return Array.from(map.values());
 }
 
 export function monthRangeFor(year, monthIndex) {
@@ -180,12 +187,12 @@ export function rangeLabel(from, to) {
     return monthLabel(`${fy}-${String(fm).padStart(2, '0')}`);
   }
   if (fy === ty && fm === tm) {
-    return `${fd} – ${formatDate(to)}`;
+    return `${fd} - ${formatDate(to)}`;
   }
   if (fy === ty) {
-    return `${formatShortDate(from)} – ${formatDate(to)}`;
+    return `${formatShortDate(from)} - ${formatDate(to)}`;
   }
-  return `${formatDate(from)} – ${formatDate(to)}`;
+  return `${formatDate(from)} - ${formatDate(to)}`;
 }
 
 export function greetingForNow() {

@@ -2,22 +2,24 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import {
-  AlertTriangle, ArrowDownLeft, ArrowUpRight, Bell, CheckCircle2, ChevronDown,
-  ChevronRight, CreditCard, Download, Eye, EyeOff, FileText, Home, LogOut, Menu, Palette, Pencil,
-  Plus, Search, Settings, Sparkles, Target, Trash2, TrendingDown, TrendingUp,
-  Wallet, X, Zap,
+  AlertTriangle, ArrowDownLeft, ArrowUpRight, BarChart3, Bell, CheckCircle2,
+  ChevronDown, ChevronRight, CreditCard, Download, Eye, EyeOff, FileText, Home,
+  LogOut, Menu, Palette, PanelLeftClose, PanelLeftOpen, Pencil, Plus, RefreshCw,
+  Search, Settings, Target, Trash2, TrendingDown, TrendingUp, Wallet, X,
 } from 'lucide-react';
+import { AccountIcon, CategoryIcon } from './components/CategoryIcon';
 import { LoginScreen } from './components/LoginScreen';
 import {
-  AccountModal, BudgetModal, ConfirmModal, GoalContributeModal, GoalModal, ProfileModal, TransactionModal,
+  AccountModal, BudgetModal, ConfirmModal, GoalContributeModal, GoalModal,
+  ProfileModal, TransactionModal,
 } from './components/Modals';
 import {
   AccountsPage, BudgetsPage, GoalsPage, InsightsPage, TransactionsPage,
 } from './components/Pages';
 import { PeriodRangePicker } from './components/PeriodRangePicker';
 import {
-  CATEGORY_ICONS, THEMES, accountTypeLabel, buildRangeChartData, currentMonthRange,
-  exportTransactionsCsv, formatMoney, formatShortDate, greetingForNow,
+  THEMES, accountTypeLabel, buildRangeChartData, currentMonthRange,
+  exportTransactionsCsv, formatMoney, greetingForNow, groupTransactionsByDate,
   normalizeAccountType, rangeLabel, shortMonthLabel,
 } from './utils';
 import './styles.css';
@@ -31,8 +33,8 @@ const PAGE_LABELS = {
   Accounts: 'Akun',
 };
 
-const IDLE_TIMEOUT_MS = 10 * 60 * 1000; // 10 menit
-const KEEPALIVE_INTERVAL_MS = 3 * 60 * 1000; // perpanjang sesi server tiap 3 menit saat aktif
+const IDLE_TIMEOUT_MS = 10 * 60 * 1000;
+const KEEPALIVE_INTERVAL_MS = 3 * 60 * 1000;
 
 function App() {
   const [authState, setAuthState] = useState({ checked: false, authenticated: false, user: null });
@@ -46,7 +48,9 @@ function App() {
   const [range, setRange] = useState(currentMonthRange);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [activePage, setActivePage] = useState('Overview');
+  const [heroAccountId, setHeroAccountId] = useState('all');
   const [txInitialFilter, setTxInitialFilter] = useState(null);
   const [query, setQuery] = useState('');
   const [overviewType, setOverviewType] = useState('all');
@@ -54,13 +58,13 @@ function App() {
   const [hideBalances, setHideBalances] = useState(false);
   const [toast, setToast] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [busyId, setBusyId] = useState(null);
 
-  // Popover states
-  const [openMenu, setOpenMenu] = useState(null); // null | 'notifications' | 'profile'
+  const [openMenu, setOpenMenu] = useState(null);
   const topbarActionsRef = useRef(null);
+  const heroMenuRef = useRef(null);
 
-  // Modal states
   const [txModal, setTxModal] = useState(null);
   const [budgetModal, setBudgetModal] = useState(null);
   const [showGoalModal, setShowGoalModal] = useState(false);
@@ -84,12 +88,12 @@ function App() {
   async function handleLogout(notice = '') {
     await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
     setOpenMenu(null);
+    setSidebarOpen(false);
     setData(null);
     setSessionNotice(notice);
     setAuthState({ checked: true, authenticated: false, user: null });
   }
 
-  // Auto-logout jika diam selama 10 menit
   useEffect(() => {
     if (!authState.authenticated) return undefined;
 
@@ -136,6 +140,7 @@ function App() {
 
   async function loadData({ quiet = false } = {}) {
     if (!quiet) setLoading(true);
+    setLoadError('');
     try {
       const response = await fetch(`/api/dashboard?from=${range.from}&to=${range.to}`);
       if (response.status === 401) {
@@ -143,10 +148,10 @@ function App() {
         setAuthState({ checked: true, authenticated: false, user: null });
         return;
       }
-      if (!response.ok) throw new Error('Gagal memuat data');
+      if (!response.ok) throw new Error('Gagal memuat data dari server.');
       setData(await response.json());
     } catch {
-      setToast('Data belum tersedia. Periksa koneksi ke server.');
+      setLoadError('Tidak dapat terhubung ke server. Periksa koneksi lalu coba lagi.');
     } finally {
       setLoading(false);
     }
@@ -165,15 +170,31 @@ function App() {
   }, [toast]);
 
   useEffect(() => {
-    if (!openMenu) return undefined;
+    if (!openMenu && !sidebarOpen) return undefined;
     function handleOutside(event) {
-      if (topbarActionsRef.current && !topbarActionsRef.current.contains(event.target)) {
+      if (openMenu === 'heroAccount') {
+        if (heroMenuRef.current && !heroMenuRef.current.contains(event.target)) {
+          setOpenMenu(null);
+        }
+        return;
+      }
+      if (openMenu && topbarActionsRef.current && !topbarActionsRef.current.contains(event.target)) {
         setOpenMenu(null);
       }
     }
+    function handleEsc(event) {
+      if (event.key === 'Escape') {
+        setOpenMenu(null);
+        setSidebarOpen(false);
+      }
+    }
     document.addEventListener('mousedown', handleOutside);
-    return () => document.removeEventListener('mousedown', handleOutside);
-  }, [openMenu]);
+    document.addEventListener('keydown', handleEsc);
+    return () => {
+      document.removeEventListener('mousedown', handleOutside);
+      document.removeEventListener('keydown', handleEsc);
+    };
+  }, [openMenu, sidebarOpen]);
 
   async function mutate(url, method, body, successMessage) {
     setBusyId(url);
@@ -206,7 +227,7 @@ function App() {
     setConfirmDelete({
       title: 'Hapus transaksi ini?',
       message: 'Transaksi yang dihapus tidak dapat dikembalikan dan akan memengaruhi saldo akun terkait.',
-      detail: `${item.title} • ${item.type === 'income' ? '+' : '-'}${formatMoney(item.amount)}`,
+      detail: `${item.title} · ${item.type === 'income' ? '+' : '-'}${formatMoney(item.amount)}`,
       onConfirm: () => mutate(`/api/transactions/${item.id}`, 'DELETE', null, 'Transaksi dihapus.'),
     });
   }
@@ -215,7 +236,7 @@ function App() {
     setConfirmDelete({
       title: 'Hapus anggaran kategori?',
       message: 'Batas pemantauan anggaran untuk kategori ini akan dihapus. Transaksi kamu tetap aman.',
-      detail: `${budget.category} • Batas ${formatMoney(budget.amount)}`,
+      detail: `${budget.category} · Batas ${formatMoney(budget.amount)}`,
       onConfirm: () => mutate(`/api/budgets/${budget.id}`, 'DELETE', null, 'Anggaran dihapus.'),
     });
   }
@@ -224,7 +245,7 @@ function App() {
     setConfirmDelete({
       title: 'Hapus target tabungan?',
       message: 'Target tabungan ini beserta progres pencatatannya akan dihapus permanen.',
-      detail: `${goal.name} • Terkumpul ${formatMoney(goal.saved)} dari ${formatMoney(goal.target)}`,
+      detail: `${goal.name} · Terkumpul ${formatMoney(goal.saved)} dari ${formatMoney(goal.target)}`,
       onConfirm: () => mutate(`/api/goals/${goal.id}`, 'DELETE', null, 'Target dihapus.'),
     });
   }
@@ -233,7 +254,7 @@ function App() {
     setConfirmDelete({
       title: 'Hapus akun keuangan?',
       message: 'Akun ini akan dihapus permanen. Akun yang masih memiliki transaksi tidak dapat dihapus.',
-      detail: `${account.name} • Saldo ${formatMoney(account.balance)}`,
+      detail: `${account.name} · Saldo ${formatMoney(account.balance)}`,
       onConfirm: () => mutate(`/api/accounts/${account.id}`, 'DELETE', null, 'Akun dihapus.'),
     });
   }
@@ -256,6 +277,10 @@ function App() {
   const profile = data?.profile || authState.user || { name: 'Pengguna', username: '', savingsTarget: 20 };
 
   const totalBalance = accounts.reduce((sum, item) => sum + item.balance, 0);
+  const selectedHeroAccount = heroAccountId === 'all'
+    ? null
+    : accounts.find((a) => String(a.id) === String(heroAccountId)) || null;
+  const displayedHeroBalance = selectedHeroAccount ? selectedHeroAccount.balance : totalBalance;
   const overBudgetCount = budgets.filter((b) => b.spent > b.amount).length;
 
   const notifications = useMemo(() => {
@@ -275,7 +300,7 @@ function App() {
           id: `budget-warn-${b.id}`,
           tone: 'warn',
           title: `Anggaran ${b.category} hampir habis (${pct}%)`,
-          detail: `Sisa ${formatMoney(b.amount - b.spent, true)} untuk bulan ini.`,
+          detail: `Sisa ${formatMoney(b.amount - b.spent, true)} untuk periode ini.`,
           page: 'Budgets',
         });
       }
@@ -295,7 +320,7 @@ function App() {
         items.push({
           id: `goal-done-${g.id}`,
           tone: 'ok',
-          title: `Target "${g.name}" tercapai!`,
+          title: `Target "${g.name}" tercapai`,
           detail: `Dana terkumpul ${formatMoney(g.saved, true)}.`,
           page: 'Goals',
         });
@@ -305,10 +330,16 @@ function App() {
   }, [budgets, goals, summary.income, summary.savingsRate, profile.savingsTarget]);
 
   const filteredOverviewTx = useMemo(() => transactions.filter((item) => {
+    if (selectedHeroAccount && String(item.account_id) !== String(selectedHeroAccount.id)) return false;
     if (overviewType !== 'all' && item.type !== overviewType) return false;
     if (!query.trim()) return true;
     return `${item.title} ${item.category} ${item.note || ''}`.toLowerCase().includes(query.trim().toLowerCase());
-  }), [transactions, overviewType, query]);
+  }), [transactions, selectedHeroAccount, overviewType, query]);
+
+  const groupedOverviewTx = useMemo(
+    () => groupTransactionsByDate(filteredOverviewTx.slice(0, 8)),
+    [filteredOverviewTx],
+  );
 
   const categoryData = useMemo(() => {
     const totals = transactions
@@ -333,16 +364,15 @@ function App() {
 
   const activeRangeLabel = rangeLabel(range.from, range.to);
   const rangeSlug = `${range.from}_${range.to}`;
-
-  const profileName = profile.name || 'Daffa';
+  const profileName = profile.name || 'Pengguna';
   const initials = profileName.slice(0, 1).toUpperCase();
   const masked = (val, short = false, signed = false) => (hideBalances ? 'Rp ••••••' : formatMoney(val, short, signed));
 
   if (!authState.checked) {
     return (
-      <div className="login-page">
-        <div className="login-loading">Memuat Moneta...</div>
-      </div>
+      <main className="login-page">
+        <div className="login-loading">Memuat sesi Moneta...</div>
+      </main>
     );
   }
 
@@ -364,25 +394,27 @@ function App() {
       onNavigate={navigateTo}
       sidebarOpen={sidebarOpen}
       setSidebarOpen={setSidebarOpen}
+      sidebarCollapsed={sidebarCollapsed}
+      setSidebarCollapsed={setSidebarCollapsed}
       toast={toast}
       overBudgetCount={overBudgetCount}
       profileName={profileName}
+      username={profile.username}
       onOpenSettings={() => setShowProfileModal(true)}
+      onLogout={() => handleLogout('')}
     >
       <div className="main-column">
         <header className="topbar">
           <button type="button" className="mobile-brand" onClick={() => navigateTo('Overview')}>
-            <span className="brand-mark">M</span>
+            <span className="brand-mark" aria-hidden="true">M</span>
             <span>Moneta</span>
           </button>
-          <button className="mobile-menu" onClick={() => setSidebarOpen(true)} aria-label="Buka menu">
-            <Menu size={20} />
-          </button>
+
           <div className="breadcrumb">
             <button type="button" className="breadcrumb-link" onClick={() => navigateTo('Overview')}>
               Personal
             </button>
-            <ChevronRight size={15} />
+            <ChevronRight size={14} aria-hidden="true" />
             <strong>{PAGE_LABELS[activePage] || activePage}</strong>
           </div>
 
@@ -396,7 +428,7 @@ function App() {
                 title="Tema tampilan"
                 onClick={() => setOpenMenu(openMenu === 'theme' ? null : 'theme')}
               >
-                <Palette size={19} />
+                <Palette size={19} aria-hidden="true" />
               </button>
               {openMenu === 'theme' && (
                 <div className="popover-panel theme-popover">
@@ -410,9 +442,10 @@ function App() {
                         key={item.id}
                         type="button"
                         className={`theme-option ${theme === item.id ? 'active' : ''}`}
+                        aria-pressed={theme === item.id}
                         onClick={() => { setTheme(item.id); setOpenMenu(null); }}
                       >
-                        <span className="theme-swatches">
+                        <span className="theme-swatches" aria-hidden="true">
                           {item.swatches.map((hex, i) => (
                             <i key={i} style={{ background: hex }} />
                           ))}
@@ -436,8 +469,8 @@ function App() {
                 aria-expanded={openMenu === 'notifications'}
                 onClick={() => setOpenMenu(openMenu === 'notifications' ? null : 'notifications')}
               >
-                <Bell size={19} />
-                {notifications.some((n) => n.tone !== 'ok') && <i />}
+                <Bell size={19} aria-hidden="true" />
+                {notifications.some((n) => n.tone !== 'ok') && <i aria-hidden="true" />}
               </button>
               {openMenu === 'notifications' && (
                 <div className="popover-panel notifications-popover">
@@ -447,7 +480,7 @@ function App() {
                   </div>
                   {notifications.length === 0 ? (
                     <div className="popover-empty">
-                      <CheckCircle2 size={18} className="tone-green" />
+                      <CheckCircle2 size={18} className="tone-green" aria-hidden="true" />
                       <span>Semua anggaran dan target dalam kondisi aman.</span>
                     </div>
                   ) : (
@@ -459,7 +492,7 @@ function App() {
                           className={`notif-item ${item.tone}`}
                           onClick={() => navigateTo(item.page)}
                         >
-                          <span className="notif-icon">
+                          <span className="notif-icon" aria-hidden="true">
                             {item.tone === 'ok' ? <CheckCircle2 size={15} /> : <AlertTriangle size={15} />}
                           </span>
                           <div>
@@ -479,11 +512,12 @@ function App() {
                 type="button"
                 className={`profile-chip ${openMenu === 'profile' ? 'is-open' : ''}`}
                 aria-expanded={openMenu === 'profile'}
+                aria-label="Menu profil"
                 onClick={() => setOpenMenu(openMenu === 'profile' ? null : 'profile')}
               >
-                <span className="avatar">{initials}</span>
-                <span>{profileName}</span>
-                <ChevronDown size={14} />
+                <span className="avatar" aria-hidden="true">{initials}</span>
+                <span className="profile-chip-name">{profileName}</span>
+                <ChevronDown size={14} aria-hidden="true" />
               </button>
               {openMenu === 'profile' && (
                 <div className="popover-panel profile-popover">
@@ -499,7 +533,7 @@ function App() {
                       type="button"
                       onClick={() => { setOpenMenu(null); setShowProfileModal(true); }}
                     >
-                      <Settings size={15} /> Pengaturan profil &amp; target
+                      <Settings size={15} aria-hidden="true" /> Pengaturan profil &amp; tema
                     </button>
                     <button
                       type="button"
@@ -509,13 +543,13 @@ function App() {
                         else setToast('Belum ada transaksi untuk diekspor pada periode ini.');
                       }}
                     >
-                      <Download size={15} /> Ekspor laporan periode ini (CSV)
+                      <Download size={15} aria-hidden="true" /> Ekspor laporan CSV
                     </button>
                     <button type="button" onClick={() => navigateTo('Accounts')}>
-                      <CreditCard size={15} /> Kelola akun keuangan
+                      <CreditCard size={15} aria-hidden="true" /> Kelola akun keuangan
                     </button>
                     <button type="button" className="danger-menu-item" onClick={() => handleLogout('')}>
-                      <LogOut size={15} /> Keluar
+                      <LogOut size={15} aria-hidden="true" /> Keluar
                     </button>
                   </div>
                 </div>
@@ -524,304 +558,490 @@ function App() {
           </div>
         </header>
 
-        <main className={`content ${loading ? 'is-loading' : ''}`}>
-          <div className="page-stage" key={activePage}>
-          {activePage === 'Overview' && (
-            <>
-              <div className="page-heading">
-                <div>
-                  <p className="eyebrow">{activeRangeLabel}</p>
-                  <h1>{greetingForNow()}, {profileName} <span className="wave">✦</span></h1>
-                  <p className="subheading">Ringkasan keuangan dan arus kasmu pada periode terpilih.</p>
-                </div>
-                <div className="heading-actions">
-                  <PeriodRangePicker range={range} onChange={setRange} />
-                  <button
-                    className="secondary-button"
-                    onClick={() => exportTransactionsCsv(transactions, rangeSlug)}
-                    disabled={!transactions.length}
-                    title="Ekspor transaksi periode ini ke CSV"
-                  >
-                    <Download size={16} /> CSV
-                  </button>
-                  <button className="primary-button" onClick={() => setTxModal({ mode: 'add' })}>
-                    <Plus size={18} /> Tambah transaksi
-                  </button>
-                </div>
-              </div>
+        <main className={`content ${loading && data ? 'is-loading' : ''}`}>
+          {loadError && (
+            <div className="error-banner" role="alert">
+              <AlertTriangle size={18} aria-hidden="true" />
+              <span>{loadError}</span>
+              <button type="button" className="secondary-button sm" onClick={() => loadData()}>
+                <RefreshCw size={14} aria-hidden="true" /> Coba lagi
+              </button>
+            </div>
+          )}
 
-              <section className="hero-grid">
-                <div className="balance-card">
-                  <div className="balance-card-top">
-                    <div className="balance-label-row">
-                      <span className="card-label">Total saldo bersih</span>
+          {loading && !data ? (
+            <DashboardSkeleton />
+          ) : (
+            <div className="page-stage" key={activePage}>
+              {activePage === 'Overview' && (
+                <>
+                  <div className="page-heading">
+                    <div>
+                      <p className="page-kicker">{activeRangeLabel}</p>
+                      <h1>{greetingForNow()}, {profileName}</h1>
+                    </div>
+                    <div className="heading-actions">
+                      <PeriodRangePicker range={range} onChange={setRange} />
                       <button
                         type="button"
-                        role="switch"
-                        aria-checked={hideBalances}
-                        className={`eye-switch ${hideBalances ? 'is-hidden' : ''}`}
-                        onClick={() => setHideBalances((v) => !v)}
-                        aria-label={hideBalances ? 'Tampilkan saldo' : 'Sembunyikan saldo'}
-                        title={hideBalances ? 'Tampilkan saldo' : 'Sembunyikan saldo'}
+                        className="secondary-button"
+                        onClick={() => exportTransactionsCsv(transactions, rangeSlug)}
+                        disabled={!transactions.length}
+                        title="Ekspor transaksi periode ini ke CSV"
                       >
-                        <span className="eye-switch-thumb">
-                          <span className="eye-icon eye-open"><Eye size={12} /></span>
-                          <span className="eye-icon eye-closed"><EyeOff size={12} /></span>
-                        </span>
-                      </button>
-                    </div>
-                    <button
-                      type="button"
-                      className="card-status clickable"
-                      onClick={() => navigateTo('Accounts')}
-                    >
-                      <span className="status-dot" /> {accounts.length} akun aktif
-                    </button>
-                  </div>
-                  <div className={`balance-value ${hideBalances ? 'is-masked' : ''}`}>{masked(totalBalance)}</div>
-                  <div className="balance-meta">
-                    {summary.netChangePct !== null ? (
-                      <>
-                        <span className={summary.netChangePct >= 0 ? 'positive' : 'negative'}>
-                          {summary.netChangePct >= 0 ? <TrendingUp size={15} /> : <TrendingDown size={15} />}
-                          {summary.netChangePct >= 0 ? '+' : ''}{summary.netChangePct}%
-                        </span>
-                        <span>arus kas bersih vs periode sebelumnya</span>
-                      </>
-                    ) : (
-                      <span>Rasio tabungan periode ini: <b className="positive">{summary.savingsRate}%</b></span>
-                    )}
-                  </div>
-                  <div className="balance-visual">
-                    <div className="visual-grid" />
-                    <div className="visual-line" />
-                  </div>
-                </div>
-
-                <div className="stat-stack">
-                  <Stat
-                    label="Pemasukan"
-                    value={masked(summary.income)}
-                    delta={`Rasio tabungan ${summary.savingsRate}%`}
-                    icon={<ArrowDownLeft size={17} />}
-                    tone="green"
-                    onClick={() => navigateTo('Transactions', { type: 'income' })}
-                  />
-                  <Stat
-                    label="Pengeluaran"
-                    value={masked(summary.expense)}
-                    delta={overBudgetCount > 0 ? `${overBudgetCount} kategori over budget` : 'Semua anggaran aman'}
-                    icon={<ArrowUpRight size={17} />}
-                    tone="orange"
-                    onClick={() => navigateTo('Transactions', { type: 'expense' })}
-                  />
-                </div>
-              </section>
-
-              <div className="section-heading">
-                <div>
-                  <h2>Ringkasan arus kas</h2>
-                  <p>Pergerakan dana pada {activeRangeLabel}.</p>
-                </div>
-                <div className="legend">
-                  <span><i className="legend-dot income-dot" /> Pemasukan</span>
-                  <span><i className="legend-dot expense-dot" /> Pengeluaran</span>
-                </div>
-              </div>
-
-              <section className="overview-grid">
-                <div className="chart-card">
-                  <div className="chart-header">
-                    <div>
-                      <span className="chart-title">Arus kas bersih</span>
-                      <strong className={summary.net < 0 ? 'tone-danger' : ''}>
-                        {masked(summary.net, false, true)}
-                      </strong>
-                      <span className="chart-caption">selisih pemasukan &amp; pengeluaran periode ini</span>
-                    </div>
-                    <div className="chart-toggle">
-                      <button
-                        className={chartMode === 'range' ? 'active' : ''}
-                        onClick={() => setChartMode('range')}
-                      >
-                        Periode
-                      </button>
-                      <button
-                        className={chartMode === '6m' ? 'active' : ''}
-                        onClick={() => setChartMode('6m')}
-                      >
-                        6 Bulan
+                        <Download size={16} aria-hidden="true" /> CSV
                       </button>
                     </div>
                   </div>
-                  <div className="chart-wrap">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={chartData} margin={{ top: 12, right: 4, left: -16, bottom: 0 }}>
-                        <defs>
-                          <linearGradient id="inFill" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#d2f975" stopOpacity=".28" />
-                            <stop offset="100%" stopColor="#d2f975" stopOpacity="0" />
-                          </linearGradient>
-                          <linearGradient id="outFill" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#ffb98d" stopOpacity=".2" />
-                            <stop offset="100%" stopColor="#ffb98d" stopOpacity="0" />
-                          </linearGradient>
-                        </defs>
-                        <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: '#999d9a', fontSize: 11 }} />
-                        <YAxis
-                          axisLine={false}
-                          tickLine={false}
-                          tick={{ fill: '#999d9a', fontSize: 10 }}
-                          tickFormatter={(value) => formatMoney(value, true)}
-                        />
-                        <Tooltip content={<ChartTooltip />} />
-                        <Area
-                          type="monotone"
-                          dataKey="in"
-                          stroke="#a9db48"
-                          strokeWidth={2.5}
-                          fill="url(#inFill)"
-                          activeDot={{ r: 4, fill: '#a9db48', stroke: '#fff', strokeWidth: 2 }}
-                        />
-                        <Area
-                          type="monotone"
-                          dataKey="out"
-                          stroke="#e78350"
-                          strokeWidth={2}
-                          fill="url(#outFill)"
-                          activeDot={{ r: 4, fill: '#e78350', stroke: '#fff', strokeWidth: 2 }}
-                        />
-                      </AreaChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
 
-                <SpendingCard
-                  categoryData={categoryData}
-                  total={summary.expense}
-                  hideBalances={hideBalances}
-                  onSelectCategory={(category) => navigateTo('Transactions', { type: 'expense', category })}
-                  onSeeDetails={() => navigateTo('Insights')}
-                />
-              </section>
+                  {/* Revolut Wallet Hero Stage */}
+                  <section className="wallet-hero-grid">
+                    <div className="wallet-hero-card">
+                      <div className="wallet-hero-top">
+                        <div className="popover-anchor" ref={heroMenuRef}>
+                          <button
+                            type="button"
+                            className="account-scope-pill"
+                            aria-expanded={openMenu === 'heroAccount'}
+                            onClick={() => setOpenMenu(openMenu === 'heroAccount' ? null : 'heroAccount')}
+                          >
+                            <span className="currency-dot" aria-hidden="true">Rp</span>
+                            <span>{selectedHeroAccount ? selectedHeroAccount.name : `Semua akun (${accounts.length})`}</span>
+                            <ChevronDown size={14} aria-hidden="true" />
+                          </button>
+                          {openMenu === 'heroAccount' && (
+                            <div className="popover-panel scope-popover">
+                              <button
+                                type="button"
+                                className={heroAccountId === 'all' ? 'active' : ''}
+                                onClick={() => { setHeroAccountId('all'); setOpenMenu(null); }}
+                              >
+                                <span>Semua akun</span>
+                                <b>{masked(totalBalance, true)}</b>
+                              </button>
+                              {accounts.map((acc) => (
+                                <button
+                                  type="button"
+                                  key={acc.id}
+                                  className={String(heroAccountId) === String(acc.id) ? 'active' : ''}
+                                  onClick={() => { setHeroAccountId(String(acc.id)); setOpenMenu(null); }}
+                                >
+                                  <span>{acc.name}</span>
+                                  <b>{masked(acc.balance, true)}</b>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
 
-              <section className="bottom-grid">
-                <div className="transactions-card">
-                  <div className="card-section-header">
-                    <div>
-                      <h2>Transaksi terbaru</h2>
-                      <p>{transactions.length} aktivitas pada {activeRangeLabel}</p>
-                    </div>
-                    <div className="table-actions">
-                      <div className="search-box">
-                        <Search size={15} />
-                        <input
-                          value={query}
-                          onChange={(e) => setQuery(e.target.value)}
-                          placeholder="Cari..."
-                        />
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={hideBalances}
+                          className={`eye-switch ${hideBalances ? 'is-hidden' : ''}`}
+                          onClick={() => setHideBalances((v) => !v)}
+                          aria-label={hideBalances ? 'Tampilkan saldo' : 'Sembunyikan saldo'}
+                          title={hideBalances ? 'Tampilkan saldo' : 'Sembunyikan saldo'}
+                        >
+                          <span className="eye-switch-thumb" aria-hidden="true">
+                            <span className="eye-icon eye-open"><Eye size={12} /></span>
+                            <span className="eye-icon eye-closed"><EyeOff size={12} /></span>
+                          </span>
+                        </button>
                       </div>
-                      <select
-                        className="filter-select compact"
-                        value={overviewType}
-                        onChange={(e) => setOverviewType(e.target.value)}
-                        aria-label="Filter tipe transaksi"
-                      >
-                        <option value="all">Semua</option>
-                        <option value="income">Masuk</option>
-                        <option value="expense">Keluar</option>
-                      </select>
+
+                      <div className={`wallet-balance-figure ${hideBalances ? 'is-masked' : ''}`}>
+                        {masked(displayedHeroBalance)}
+                      </div>
+
+                      <div className="wallet-balance-meta">
+                        {selectedHeroAccount ? (
+                          <span className="meta-caption">
+                            {accountTypeLabel(selectedHeroAccount.type)} · {selectedHeroAccount.transaction_count ?? 0} transaksi tercatat
+                          </span>
+                        ) : summary.netChangePct !== null ? (
+                          <>
+                            <span className={`delta-chip ${summary.netChangePct >= 0 ? 'up' : 'down'}`}>
+                              {summary.netChangePct >= 0
+                                ? <TrendingUp size={13} aria-hidden="true" />
+                                : <TrendingDown size={13} aria-hidden="true" />}
+                              {summary.netChangePct >= 0 ? '+' : ''}{summary.netChangePct}%
+                            </span>
+                            <span className="meta-caption">arus kas bersih vs periode lalu</span>
+                          </>
+                        ) : (
+                          <span className="meta-caption">
+                            Rasio tabungan periode ini: <strong>{summary.savingsRate}%</strong>
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Signature Revolut Circular Quick Actions */}
+                      <div className="quick-actions-row" role="group" aria-label="Aksi cepat">
+                        <button
+                          type="button"
+                          className="quick-action primary"
+                          onClick={() => setTxModal({ mode: 'add' })}
+                        >
+                          <span className="qa-circle" aria-hidden="true"><Plus size={20} /></span>
+                          <span>Catat</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="quick-action"
+                          onClick={() => navigateTo('Budgets')}
+                        >
+                          <span className="qa-circle" aria-hidden="true">
+                            <Wallet size={19} />
+                            {overBudgetCount > 0 && <i className="qa-dot" />}
+                          </span>
+                          <span>Anggaran</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="quick-action"
+                          onClick={() => navigateTo('Goals')}
+                        >
+                          <span className="qa-circle" aria-hidden="true"><Target size={19} /></span>
+                          <span>Target</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="quick-action"
+                          onClick={() => navigateTo('Insights')}
+                        >
+                          <span className="qa-circle" aria-hidden="true"><BarChart3 size={19} /></span>
+                          <span>Laporan</span>
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                  <div className="transaction-list">
-                    {filteredOverviewTx.slice(0, 6).map((item) => (
-                      <TransactionRow
-                        key={item.id}
-                        item={item}
-                        hideBalances={hideBalances}
-                        onEdit={() => setTxModal({ mode: 'edit', item })}
-                        onDelete={() => askDeleteTransaction(item)}
-                        busy={busyId === `/api/transactions/${item.id}`}
-                      />
-                    ))}
-                    {!filteredOverviewTx.length && (
-                      <div className="empty-inline">Tidak ada transaksi yang cocok.</div>
-                    )}
-                  </div>
-                  <button className="view-all" onClick={() => navigateTo('Transactions')}>
-                    Lihat semua transaksi <ChevronRight size={15} />
-                  </button>
-                </div>
 
-                <div className="right-stack">
-                  <GoalsWidget
-                    goals={goals}
-                    hideBalances={hideBalances}
-                    onAdd={() => setShowGoalModal(true)}
-                    onFund={(goal) => setGoalToFund(goal)}
-                    onManage={() => navigateTo('Goals')}
-                  />
-                  <AccountsWidget
-                    accounts={accounts}
-                    hideBalances={hideBalances}
-                    onAdd={() => setShowAccountModal(true)}
-                    onSelectAccount={(accountId) => navigateTo('Transactions', { accountId })}
-                    onManage={() => navigateTo('Accounts')}
-                  />
-                </div>
-              </section>
-            </>
-          )}
+                    <div className="cashflow-side-stack">
+                      <button
+                        type="button"
+                        className="flow-card"
+                        onClick={() => navigateTo('Transactions', { type: 'income' })}
+                      >
+                        <span className="cat-disc tone-green" aria-hidden="true">
+                          <ArrowDownLeft size={18} />
+                        </span>
+                        <div className="flow-copy">
+                          <span>Pemasukan</span>
+                          <strong>{masked(summary.income)}</strong>
+                          <small>Rasio tabungan {summary.savingsRate}%</small>
+                        </div>
+                        <ChevronRight className="flow-arrow" size={16} aria-hidden="true" />
+                      </button>
 
-          {activePage === 'Transactions' && (
-            <TransactionsPage
-              range={range}
-              setRange={setRange}
-              data={data}
-              initialFilter={txInitialFilter}
-              onAdd={() => setTxModal({ mode: 'add' })}
-              onEdit={(item) => setTxModal({ mode: 'edit', item })}
-              onDelete={askDeleteTransaction}
-              busyId={busyId}
-            />
-          )}
+                      <button
+                        type="button"
+                        className="flow-card"
+                        onClick={() => navigateTo('Transactions', { type: 'expense' })}
+                      >
+                        <span className="cat-disc tone-rose" aria-hidden="true">
+                          <ArrowUpRight size={18} />
+                        </span>
+                        <div className="flow-copy">
+                          <span>Pengeluaran</span>
+                          <strong>{masked(summary.expense)}</strong>
+                          <small>{overBudgetCount > 0 ? `${overBudgetCount} kategori lewat batas` : 'Semua anggaran aman'}</small>
+                        </div>
+                        <ChevronRight className="flow-arrow" size={16} aria-hidden="true" />
+                      </button>
+                    </div>
+                  </section>
 
-          {activePage === 'Budgets' && (
-            <BudgetsPage
-              range={range}
-              setRange={setRange}
-              data={data}
-              onAddBudget={() => setBudgetModal({ mode: 'add' })}
-              onEditBudget={(item) => setBudgetModal({ mode: 'edit', item })}
-              onDeleteBudget={askDeleteBudget}
-              busyId={busyId}
-            />
-          )}
+                  {/* Tactile Wallet Accounts Strip */}
+                  <section className="section-block" aria-label="Dompet dan rekening">
+                    <div className="section-bar">
+                      <h2>Dompet &amp; rekening</h2>
+                      <button type="button" className="text-link" onClick={() => navigateTo('Accounts')}>
+                        Kelola semua
+                      </button>
+                    </div>
+                    <div className="wallet-cards-strip">
+                      {accounts.map((acc) => {
+                        const norm = normalizeAccountType(acc.type);
+                        return (
+                          <button
+                            type="button"
+                            key={acc.id}
+                            className={`wallet-card type-${norm}`}
+                            onClick={() => navigateTo('Transactions', { accountId: acc.id })}
+                          >
+                            <div className="wallet-card-top">
+                              <AccountIcon type={acc.type} size={17} />
+                              <span className="wallet-type-label">{accountTypeLabel(acc.type)}</span>
+                            </div>
+                            <div className="wallet-card-name">{acc.name}</div>
+                            <div className="wallet-card-balance">{masked(acc.balance, true)}</div>
+                          </button>
+                        );
+                      })}
+                      <button
+                        type="button"
+                        className="wallet-card add-card"
+                        onClick={() => setShowAccountModal(true)}
+                      >
+                        <span className="add-card-circle" aria-hidden="true"><Plus size={18} /></span>
+                        <span>Tambah akun</span>
+                      </button>
+                    </div>
+                  </section>
 
-          {activePage === 'Goals' && (
-            <GoalsPage
-              data={data}
-              onAddGoal={() => setShowGoalModal(true)}
-              onFundGoal={(goal) => setGoalToFund(goal)}
-              onDeleteGoal={askDeleteGoal}
-              busyId={busyId}
-            />
-          )}
+                  {/* Cash Flow & Spending Analytics */}
+                  <section className="analytics-grid">
+                    <div className="surface-card chart-panel">
+                      <div className="panel-head">
+                        <div>
+                          <h2>Ke mana arus kas bergerak?</h2>
+                          <p>
+                            Selisih bersih:{' '}
+                            <strong className={summary.net < 0 ? 'tone-danger' : 'tone-green'}>
+                              {masked(summary.net, false, true)}
+                            </strong>
+                          </p>
+                        </div>
+                        <div className="segmented-control compact" role="group" aria-label="Rentang grafik">
+                          <button
+                            type="button"
+                            className={chartMode === 'range' ? 'active' : ''}
+                            onClick={() => setChartMode('range')}
+                          >
+                            Periode
+                          </button>
+                          <button
+                            type="button"
+                            className={chartMode === '6m' ? 'active' : ''}
+                            onClick={() => setChartMode('6m')}
+                          >
+                            6 Bulan
+                          </button>
+                        </div>
+                      </div>
+                      <div className="chart-wrap">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <AreaChart data={chartData} margin={{ top: 12, right: 6, left: -14, bottom: 0 }}>
+                            <defs>
+                              <linearGradient id="inFill" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stopColor="#16a34a" stopOpacity="0.22" />
+                                <stop offset="100%" stopColor="#16a34a" stopOpacity="0" />
+                              </linearGradient>
+                              <linearGradient id="outFill" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stopColor="#ea580c" stopOpacity="0.16" />
+                                <stop offset="100%" stopColor="#ea580c" stopOpacity="0" />
+                              </linearGradient>
+                            </defs>
+                            <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: 'var(--muted)', fontSize: 11 }} />
+                            <YAxis
+                              axisLine={false}
+                              tickLine={false}
+                              tick={{ fill: 'var(--muted)', fontSize: 10 }}
+                              tickFormatter={(value) => formatMoney(value, true)}
+                            />
+                            <Tooltip content={<ChartTooltip />} />
+                            <Area
+                              type="monotone"
+                              dataKey="in"
+                              stroke="#16a34a"
+                              strokeWidth={2.5}
+                              fill="url(#inFill)"
+                              activeDot={{ r: 4, fill: '#16a34a', stroke: '#fff', strokeWidth: 2 }}
+                            />
+                            <Area
+                              type="monotone"
+                              dataKey="out"
+                              stroke="#ea580c"
+                              strokeWidth={2}
+                              fill="url(#outFill)"
+                              activeDot={{ r: 4, fill: '#ea580c', stroke: '#fff', strokeWidth: 2 }}
+                            />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
 
-          {activePage === 'Insights' && (
-            <InsightsPage range={range} setRange={setRange} data={data} />
-          )}
+                    <SpendingCard
+                      categoryData={categoryData}
+                      total={summary.expense}
+                      hideBalances={hideBalances}
+                      onSelectCategory={(category) => navigateTo('Transactions', { type: 'expense', category })}
+                      onSeeDetails={() => navigateTo('Insights')}
+                    />
+                  </section>
 
-          {activePage === 'Accounts' && (
-            <AccountsPage
-              data={data}
-              onAddAccount={() => setShowAccountModal(true)}
-              onDeleteAccount={askDeleteAccount}
-              onViewAccountTransactions={(accountId) => navigateTo('Transactions', { accountId })}
-              busyId={busyId}
-            />
+                  {/* Date-Grouped Activity + Goals Vaults */}
+                  <section className="activity-grid">
+                    <div className="surface-card activity-panel">
+                      <div className="panel-head">
+                        <div>
+                          <h2>Aktivitas terbaru</h2>
+                          <p>
+                            {filteredOverviewTx.length} transaksi
+                            {selectedHeroAccount ? ` di ${selectedHeroAccount.name}` : ` pada ${activeRangeLabel}`}
+                          </p>
+                        </div>
+                        <div className="table-actions">
+                          <div className="search-box">
+                            <Search size={15} aria-hidden="true" />
+                            <input
+                              aria-label="Cari aktivitas terbaru"
+                              value={query}
+                              onChange={(e) => setQuery(e.target.value)}
+                              placeholder="Cari..."
+                            />
+                          </div>
+                          <select
+                            className="filter-select compact"
+                            value={overviewType}
+                            onChange={(e) => setOverviewType(e.target.value)}
+                            aria-label="Filter tipe transaksi"
+                          >
+                            <option value="all">Semua</option>
+                            <option value="income">Masuk</option>
+                            <option value="expense">Keluar</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      {groupedOverviewTx.length === 0 ? (
+                        <div className="empty-state compact">
+                          <strong>Belum ada aktivitas di sini</strong>
+                          <p>Catat pemasukan atau pengeluaran untuk melihat riwayat arus kasmu.</p>
+                          <button type="button" className="primary-button sm" onClick={() => setTxModal({ mode: 'add' })}>
+                            <Plus size={15} aria-hidden="true" /> Catat transaksi
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="date-groups">
+                          {groupedOverviewTx.map((group) => (
+                            <div className="date-group" key={group.date}>
+                              <div className="date-group-header">
+                                <span>{group.label}</span>
+                                <b className={group.dailyNet >= 0 ? 'tone-green' : ''}>
+                                  {masked(group.dailyNet, true, true)}
+                                </b>
+                              </div>
+                              <div className="activity-list">
+                                {group.items.map((item) => {
+                                  const positive = item.type === 'income';
+                                  return (
+                                    <div className="activity-row" key={item.id}>
+                                      <button
+                                        type="button"
+                                        className="activity-main"
+                                        onClick={() => setTxModal({ mode: 'edit', item })}
+                                      >
+                                        <CategoryIcon category={item.category} type={item.type} size={17} />
+                                        <div className="activity-copy">
+                                          <strong>{item.title}</strong>
+                                          <span>
+                                            {item.category}
+                                            {item.account_name ? ` · ${item.account_name}` : ''}
+                                          </span>
+                                        </div>
+                                        <strong className={`activity-amount ${positive ? 'positive' : ''}`}>
+                                          {hideBalances ? '••••••' : `${positive ? '+' : '-'}${formatMoney(item.amount)}`}
+                                        </strong>
+                                      </button>
+                                      <div className="row-actions">
+                                        <button
+                                          type="button"
+                                          className="icon-button sm"
+                                          onClick={() => setTxModal({ mode: 'edit', item })}
+                                          aria-label={`Edit ${item.title}`}
+                                          title="Edit"
+                                        >
+                                          <Pencil size={14} aria-hidden="true" />
+                                        </button>
+                                        <button
+                                          type="button"
+                                          className="icon-button sm danger"
+                                          onClick={() => askDeleteTransaction(item)}
+                                          disabled={busyId === `/api/transactions/${item.id}`}
+                                          aria-label={`Hapus ${item.title}`}
+                                          title="Hapus"
+                                        >
+                                          <Trash2 size={14} aria-hidden="true" />
+                                        </button>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {filteredOverviewTx.length > 0 && (
+                        <button type="button" className="panel-footer-link" onClick={() => navigateTo('Transactions')}>
+                          Lihat semua transaksi <ChevronRight size={15} aria-hidden="true" />
+                        </button>
+                      )}
+                    </div>
+
+                    <GoalsWidget
+                      goals={goals}
+                      hideBalances={hideBalances}
+                      onAdd={() => setShowGoalModal(true)}
+                      onFund={(goal) => setGoalToFund(goal)}
+                      onManage={() => navigateTo('Goals')}
+                    />
+                  </section>
+                </>
+              )}
+
+              {activePage === 'Transactions' && (
+                <TransactionsPage
+                  range={range}
+                  setRange={setRange}
+                  data={data}
+                  initialFilter={txInitialFilter}
+                  onAdd={() => setTxModal({ mode: 'add' })}
+                  onEdit={(item) => setTxModal({ mode: 'edit', item })}
+                  onDelete={askDeleteTransaction}
+                  busyId={busyId}
+                />
+              )}
+
+              {activePage === 'Budgets' && (
+                <BudgetsPage
+                  range={range}
+                  setRange={setRange}
+                  data={data}
+                  onAddBudget={() => setBudgetModal({ mode: 'add' })}
+                  onEditBudget={(item) => setBudgetModal({ mode: 'edit', item })}
+                  onDeleteBudget={askDeleteBudget}
+                  busyId={busyId}
+                />
+              )}
+
+              {activePage === 'Goals' && (
+                <GoalsPage
+                  data={data}
+                  onAddGoal={() => setShowGoalModal(true)}
+                  onFundGoal={(goal) => setGoalToFund(goal)}
+                  onDeleteGoal={askDeleteGoal}
+                  busyId={busyId}
+                />
+              )}
+
+              {activePage === 'Insights' && (
+                <InsightsPage range={range} setRange={setRange} data={data} />
+              )}
+
+              {activePage === 'Accounts' && (
+                <AccountsPage
+                  data={data}
+                  onAddAccount={() => setShowAccountModal(true)}
+                  onDeleteAccount={askDeleteAccount}
+                  onViewAccountTransactions={(accountId) => navigateTo('Transactions', { accountId })}
+                  busyId={busyId}
+                />
+              )}
+            </div>
           )}
-          </div>
         </main>
       </div>
 
@@ -910,94 +1130,167 @@ function App() {
 
 function Shell({
   children, activePage, onNavigate, sidebarOpen, setSidebarOpen,
-  toast, overBudgetCount, profileName, onOpenSettings,
+  sidebarCollapsed, setSidebarCollapsed, toast, overBudgetCount,
+  profileName, username, onOpenSettings, onLogout,
 }) {
   const primaryNav = [
-    { id: 'Overview', label: 'Ringkasan', icon: <Home size={18} /> },
-    { id: 'Transactions', label: 'Transaksi', icon: <FileText size={18} /> },
-    { id: 'Budgets', label: 'Anggaran', icon: <Wallet size={18} />, alert: overBudgetCount > 0 ? overBudgetCount : null },
-    { id: 'Goals', label: 'Target', icon: <Target size={18} /> },
+    { id: 'Overview', label: 'Ringkasan', icon: Home },
+    { id: 'Transactions', label: 'Transaksi', icon: FileText },
+    { id: 'Budgets', label: 'Anggaran', icon: Wallet, alert: overBudgetCount > 0 ? overBudgetCount : null },
+    { id: 'Goals', label: 'Target', icon: Target },
   ];
   const secondaryNav = [
-    { id: 'Insights', label: 'Laporan', icon: <Sparkles size={18} />, badge: 'NEW' },
-    { id: 'Accounts', label: 'Akun', icon: <CreditCard size={18} /> },
+    { id: 'Insights', label: 'Laporan', icon: BarChart3 },
+    { id: 'Accounts', label: 'Akun', icon: CreditCard },
   ];
 
   return (
-    <div className="app-shell">
-      <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
-        <button type="button" className="brand" onClick={() => onNavigate('Overview')}>
-          <span className="brand-mark">M</span>
-          <span>Moneta</span>
-        </button>
-        <button className="sidebar-close" onClick={() => setSidebarOpen(false)} aria-label="Tutup menu">
-          <X size={19} />
-        </button>
-        <button type="button" className="workspace" onClick={() => { setSidebarOpen(false); onOpenSettings(); }}>
-          <span className="workspace-avatar">{profileName.slice(0, 1).toUpperCase()}</span>
-          <div>
-            <strong>{profileName}</strong>
-            <span>Ruang keuangan pribadi</span>
-          </div>
-          <Settings size={14} className="workspace-gear" />
-        </button>
-        <nav>
-          {primaryNav.map((item) => (
-            <button
-              key={item.id}
-              className={activePage === item.id ? 'active' : ''}
-              onClick={() => onNavigate(item.id)}
-            >
-              {item.icon}
-              <span>{item.label}</span>
-              {item.alert ? (
-                <span className="alert-badge">{item.alert}</span>
-              ) : (
-                activePage === item.id && <span className="nav-pip" />
-              )}
-            </button>
-          ))}
+    <div className={`app-shell ${sidebarCollapsed ? 'is-collapsed' : ''}`}>
+      <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`} aria-label="Navigasi utama">
+        <div className="sidebar-top">
+          <button type="button" className="brand" onClick={() => onNavigate('Overview')} aria-label="Beranda Moneta">
+            <span className="brand-mark" aria-hidden="true">M</span>
+            <span className="brand-text">Moneta</span>
+          </button>
+          <button
+            type="button"
+            className="collapse-btn"
+            aria-expanded={!sidebarCollapsed}
+            aria-label={sidebarCollapsed ? 'Perluas navigasi' : 'Ringkas navigasi'}
+            title={sidebarCollapsed ? 'Perluas menu' : 'Ringkas menu'}
+            onClick={() => setSidebarCollapsed((v) => !v)}
+          >
+            {sidebarCollapsed ? <PanelLeftOpen size={17} aria-hidden="true" /> : <PanelLeftClose size={17} aria-hidden="true" />}
+          </button>
+          <button
+            type="button"
+            className="sidebar-close"
+            onClick={() => setSidebarOpen(false)}
+            aria-label="Tutup menu"
+          >
+            <X size={19} aria-hidden="true" />
+          </button>
+        </div>
+
+        <nav className="nav-group" aria-label="Menu utama">
+          <span className="nav-group-label">Utama</span>
+          {primaryNav.map((item) => {
+            const Icon = item.icon;
+            const isActive = activePage === item.id;
+            return (
+              <button
+                type="button"
+                key={item.id}
+                className={isActive ? 'active' : ''}
+                aria-current={isActive ? 'page' : undefined}
+                aria-label={item.label}
+                title={sidebarCollapsed ? item.label : undefined}
+                onClick={() => onNavigate(item.id)}
+              >
+                <Icon size={18} aria-hidden="true" />
+                <span className="nav-label">{item.label}</span>
+                {item.alert && <span className="alert-badge">{item.alert}</span>}
+              </button>
+            );
+          })}
         </nav>
-        <div className="sidebar-divider" />
-        <nav className="secondary-nav">
-          {secondaryNav.map((item) => (
-            <button
-              key={item.id}
-              className={activePage === item.id ? 'active' : ''}
-              onClick={() => onNavigate(item.id)}
-            >
-              {item.icon}
-              <span>{item.label}</span>
-              {item.badge && activePage !== item.id && <span className="new-badge">{item.badge}</span>}
-              {activePage === item.id && <span className="nav-pip" />}
-            </button>
-          ))}
+
+        <nav className="nav-group" aria-label="Analisis dan dompet">
+          <span className="nav-group-label">Analisis</span>
+          {secondaryNav.map((item) => {
+            const Icon = item.icon;
+            const isActive = activePage === item.id;
+            return (
+              <button
+                type="button"
+                key={item.id}
+                className={isActive ? 'active' : ''}
+                aria-current={isActive ? 'page' : undefined}
+                aria-label={item.label}
+                title={sidebarCollapsed ? item.label : undefined}
+                onClick={() => onNavigate(item.id)}
+              >
+                <Icon size={18} aria-hidden="true" />
+                <span className="nav-label">{item.label}</span>
+              </button>
+            );
+          })}
         </nav>
+
         <div className="sidebar-bottom">
           <button
             type="button"
-            className="settings-nav-btn"
+            className="sidebar-action"
+            aria-label="Pengaturan"
+            title={sidebarCollapsed ? 'Pengaturan' : undefined}
             onClick={() => { setSidebarOpen(false); onOpenSettings(); }}
           >
-            <Settings size={17} />
-            <span>Pengaturan</span>
+            <Settings size={18} aria-hidden="true" />
+            <span className="nav-label">Pengaturan</span>
           </button>
-          <button className="upgrade" onClick={() => onNavigate('Insights')}>
-            <Zap size={18} />
-            <div>
-              <strong>Pantau kesehatan finansial</strong>
-              <span>Lihat laporan &amp; rasio tabungan</span>
+          <button
+            type="button"
+            className="sidebar-user"
+            aria-label="Keluar dari akun"
+            title={sidebarCollapsed ? `${profileName} (Keluar)` : undefined}
+            onClick={onLogout}
+          >
+            <span className="avatar sm" aria-hidden="true">{profileName.slice(0, 1).toUpperCase()}</span>
+            <div className="nav-label">
+              <strong>{profileName}</strong>
+              <span>{username ? `@${username}` : 'Personal'}</span>
             </div>
-            <ChevronRight size={15} />
+            <LogOut size={15} className="nav-label user-logout-ico" aria-hidden="true" />
           </button>
-          <div className="sidebar-footer">© 2026 Moneta <span>•</span> v1.2</div>
         </div>
       </aside>
-      {sidebarOpen && <button className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} aria-label="Tutup menu" />}
+
+      {sidebarOpen && (
+        <button
+          type="button"
+          className="sidebar-backdrop"
+          onClick={() => setSidebarOpen(false)}
+          aria-label="Tutup menu"
+        />
+      )}
+
       {children}
+
+      {/* Mobile Revolut-style Bottom Tab Bar */}
+      <nav className="mobile-bottom-nav" aria-label="Navigasi cepat seluler">
+        {primaryNav.map((item) => {
+          const Icon = item.icon;
+          const isActive = activePage === item.id;
+          return (
+            <button
+              type="button"
+              key={item.id}
+              className={isActive ? 'active' : ''}
+              aria-current={isActive ? 'page' : undefined}
+              onClick={() => onNavigate(item.id)}
+            >
+              <span className="tab-ico-wrap" aria-hidden="true">
+                <Icon size={20} />
+                {item.alert && <i className="tab-dot" />}
+              </span>
+              <span>{item.label}</span>
+            </button>
+          );
+        })}
+        <button
+          type="button"
+          className={activePage === 'Insights' || activePage === 'Accounts' ? 'active' : ''}
+          onClick={() => setSidebarOpen(true)}
+          aria-label="Buka menu lainnya"
+        >
+          <Menu size={20} aria-hidden="true" />
+          <span>Lainnya</span>
+        </button>
+      </nav>
+
       {toast && (
-        <div className="toast" role="status">
-          <span className="toast-check">✓</span>
+        <div className="toast" role="status" aria-live="polite">
+          <span className="toast-check" aria-hidden="true">✓</span>
           {toast}
         </div>
       )}
@@ -1005,17 +1298,22 @@ function Shell({
   );
 }
 
-function Stat({ label, value, delta, icon, tone, onClick }) {
+function DashboardSkeleton() {
   return (
-    <button type="button" className={`stat-card ${tone}`} onClick={onClick}>
-      <div className="stat-icon">{icon}</div>
-      <div className="stat-copy">
-        <span>{label}</span>
-        <strong>{value}</strong>
-        <small>{delta}</small>
+    <div className="skeleton-stage" aria-busy="true" aria-label="Memuat data keuangan">
+      <div className="skeleton-block h-title" />
+      <div className="wallet-hero-grid">
+        <div className="skeleton-block h-hero" />
+        <div className="cashflow-side-stack">
+          <div className="skeleton-block h-flow" />
+          <div className="skeleton-block h-flow" />
+        </div>
       </div>
-      <ChevronRight className="stat-arrow" size={16} />
-    </button>
+      <div className="analytics-grid">
+        <div className="skeleton-block h-chart" />
+        <div className="skeleton-block h-chart" />
+      </div>
+    </div>
   );
 }
 
@@ -1036,12 +1334,11 @@ function ChartTooltip({ active, payload, label }) {
 
 function SpendingCard({ categoryData, total, hideBalances, onSelectCategory, onSeeDetails }) {
   return (
-    <div className="spending-card">
-      <div className="chart-header">
+    <div className="surface-card chart-panel">
+      <div className="panel-head">
         <div>
-          <span className="chart-title">Pengeluaran terbesar</span>
-          <strong>{hideBalances ? 'Rp ••••••' : formatMoney(total, true)}</strong>
-          <span className="chart-caption">klik kategori untuk lihat transaksinya</span>
+          <h2>Pengeluaran terbesar</h2>
+          <p>{hideBalances ? 'Rp ••••••' : formatMoney(total)} total pengeluaran periode ini</p>
         </div>
       </div>
       <div className="category-bars">
@@ -1050,21 +1347,19 @@ function SpendingCard({ categoryData, total, hideBalances, onSelectCategory, onS
           return (
             <button
               type="button"
-              className="category-row clickable"
+              className="category-row"
               key={category}
               onClick={() => onSelectCategory(category)}
             >
               <div className="category-label">
-                <span className={`category-icon color-${index}`}>
-                  {CATEGORY_ICONS[category] || '•'}
-                </span>
-                <span>{category}</span>
+                <CategoryIcon category={category} type="expense" size={15} className="sm" />
+                <span className="cat-name">{category}</span>
                 <small className="category-share">{share}%</small>
                 <b>{hideBalances ? '••••' : formatMoney(amount, true)}</b>
               </div>
               <div className="meter">
                 <span
-                  style={{ width: `${Math.max(7, (amount / (categoryData[0]?.[1] || amount)) * 100)}%` }}
+                  style={{ width: `${Math.max(8, (amount / (categoryData[0]?.[1] || amount)) * 100)}%` }}
                   className={`meter-fill color-${index}`}
                 />
               </div>
@@ -1072,125 +1367,74 @@ function SpendingCard({ categoryData, total, hideBalances, onSelectCategory, onS
           );
         })}
         {categoryData.length === 0 && (
-          <div className="empty-inline">Belum ada pengeluaran bulan ini.</div>
+          <div className="empty-state compact">
+            <strong>Belum ada pengeluaran</strong>
+            <p>Kategori pengeluaran terbesarmu akan tampil di sini.</p>
+          </div>
         )}
       </div>
-      <button className="view-all muted" onClick={onSeeDetails}>
-        Lihat rincian laporan <ChevronRight size={15} />
+      <button type="button" className="panel-footer-link" onClick={onSeeDetails}>
+        Lihat laporan lengkap <ChevronRight size={15} aria-hidden="true" />
       </button>
-    </div>
-  );
-}
-
-function TransactionRow({ item, hideBalances, onEdit, onDelete, busy }) {
-  const positive = item.type === 'income';
-  return (
-    <div className="transaction-row clickable" onClick={onEdit} role="button" tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && onEdit()}>
-      <div className={`transaction-icon ${positive ? 'income' : ''}`}>
-        {CATEGORY_ICONS[item.category] || '•'}
-      </div>
-      <div className="transaction-info">
-        <strong>{item.title}</strong>
-        <span>
-          {item.category} <i /> {formatShortDate(item.date)}
-          {item.account_name ? <> <i /> {item.account_name}</> : null}
-        </span>
-      </div>
-      <strong className={`transaction-amount ${positive ? 'positive' : ''}`}>
-        {hideBalances ? '••••••' : `${positive ? '+' : '-'} ${formatMoney(item.amount)}`}
-      </strong>
-      <div className="row-actions" onClick={(e) => e.stopPropagation()}>
-        <button className="icon-button sm" onClick={onEdit} aria-label="Edit transaksi" title="Edit">
-          <Pencil size={14} />
-        </button>
-        <button
-          className="icon-button sm danger"
-          onClick={onDelete}
-          disabled={busy}
-          aria-label="Hapus transaksi"
-          title="Hapus"
-        >
-          <Trash2 size={14} />
-        </button>
-      </div>
     </div>
   );
 }
 
 function GoalsWidget({ goals, hideBalances, onAdd, onFund, onManage }) {
   return (
-    <div className="goals-card">
-      <div className="card-section-header">
+    <div className="surface-card goals-panel">
+      <div className="panel-head">
         <div>
-          <h2>Target</h2>
-          <p>Klik target untuk tambah dana.</p>
+          <h2>Kantong target</h2>
+          <p>Klik target untuk menambah dana.</p>
         </div>
-        <button className="icon-button" onClick={onAdd} aria-label="Tambah target" title="Tambah target">
-          <Plus size={17} />
+        <button
+          type="button"
+          className="icon-button sm"
+          onClick={onAdd}
+          aria-label="Buat target baru"
+          title="Buat target baru"
+        >
+          <Plus size={17} aria-hidden="true" />
         </button>
       </div>
-      {goals.slice(0, 3).map((goal) => {
-        const percentage = Math.min(100, Math.round((goal.saved / goal.target) * 100));
-        return (
-          <button type="button" className="goal-row clickable" key={goal.id} onClick={() => onFund(goal)}>
-            <div className="goal-row-top">
-              <div className="goal-icon"><Target size={17} /></div>
-              <div>
-                <strong>{goal.name}</strong>
-                <span>
-                  {hideBalances
-                    ? '•••• dari ••••'
-                    : `${formatMoney(goal.saved, true)} dari ${formatMoney(goal.target, true)}`}
+      <div className="goal-widget-list">
+        {goals.slice(0, 3).map((goal) => {
+          const percentage = Math.min(100, Math.round((goal.saved / goal.target) * 100));
+          return (
+            <button type="button" className="goal-item" key={goal.id} onClick={() => onFund(goal)}>
+              <div className="goal-item-top">
+                <span className="cat-disc tone-green sm" aria-hidden="true">
+                  <Target size={15} />
                 </span>
+                <div className="goal-item-copy">
+                  <strong>{goal.name}</strong>
+                  <span>
+                    {hideBalances
+                      ? '•••• dari ••••'
+                      : `${formatMoney(goal.saved, true)} dari ${formatMoney(goal.target, true)}`}
+                  </span>
+                </div>
+                <b>{percentage}%</b>
               </div>
-              <b>{percentage}%</b>
-            </div>
-            <div className="goal-meter"><span style={{ width: `${percentage}%` }} /></div>
-          </button>
-        );
-      })}
-      {goals.length === 0 && <div className="empty-inline">Belum ada target tabungan.</div>}
-      <button className="view-all muted" onClick={onManage}>
-        Kelola target <ChevronRight size={15} />
-      </button>
-    </div>
-  );
-}
-
-function AccountsWidget({ accounts, hideBalances, onAdd, onSelectAccount, onManage }) {
-  return (
-    <div className="accounts-card">
-      <div className="card-section-header">
-        <div>
-          <h2>Akun kamu</h2>
-          <p>Klik akun untuk filter transaksi.</p>
-        </div>
-        <button className="icon-button" onClick={onAdd} aria-label="Tambah akun" title="Tambah akun">
-          <Plus size={17} />
-        </button>
+              <div className="progress-track sm">
+                <span className="progress-fill ok" style={{ width: `${percentage}%` }} />
+              </div>
+            </button>
+          );
+        })}
+        {goals.length === 0 && (
+          <div className="empty-state compact">
+            <strong>Belum ada target</strong>
+            <p>Buat kantong tabungan agar tujuan finansial lebih terarah.</p>
+            <button type="button" className="secondary-button sm" onClick={onAdd}>
+              <Plus size={14} aria-hidden="true" /> Buat target
+            </button>
+          </div>
+        )}
       </div>
-      {accounts.map((account) => {
-        const norm = normalizeAccountType(account.type);
-        return (
-          <button
-            type="button"
-            className="account-row clickable"
-            key={account.id}
-            onClick={() => onSelectAccount(account.id)}
-          >
-            <span className={`account-logo ${norm}`}>
-              {norm === 'bank' ? 'B' : norm === 'ewallet' ? '◉' : '◒'}
-            </span>
-            <div>
-              <strong>{account.name}</strong>
-              <span>{accountTypeLabel(account.type)}</span>
-            </div>
-            <b>{hideBalances ? '••••••' : formatMoney(account.balance, true)}</b>
-          </button>
-        );
-      })}
-      <button className="view-all muted" onClick={onManage}>
-        Kelola akun <ChevronRight size={15} />
+      <button type="button" className="panel-footer-link" onClick={onManage}>
+        Kelola semua target <ChevronRight size={15} aria-hidden="true" />
       </button>
     </div>
   );

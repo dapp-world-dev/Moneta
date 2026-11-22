@@ -2,7 +2,18 @@ import React, { useEffect, useState } from 'react';
 import { AlertTriangle, X } from 'lucide-react';
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, THEMES, formatMoney, todayIso } from '../utils';
 
+function useEscapeClose(onClose, disabled = false) {
+  useEffect(() => {
+    function handleKey(event) {
+      if (event.key === 'Escape' && !disabled) onClose();
+    }
+    document.addEventListener('keydown', handleKey);
+    return () => document.removeEventListener('keydown', handleKey);
+  }, [onClose, disabled]);
+}
+
 export function TransactionModal({ onClose, onSubmit, accounts, initial = null, saving = false }) {
+  useEscapeClose(onClose, saving);
   const isEdit = Boolean(initial);
   const defaultType = initial?.type || 'expense';
   const [form, setForm] = useState({
@@ -21,17 +32,17 @@ export function TransactionModal({ onClose, onSubmit, accounts, initial = null, 
     ? categories
     : [form.category, ...categories];
 
+  function selectType(nextType) {
+    const nextCategories = nextType === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
+    setForm((prev) => ({
+      ...prev,
+      type: nextType,
+      category: nextCategories.includes(prev.category) ? prev.category : nextCategories[0],
+    }));
+  }
+
   function handleChange(event) {
     const { name, value } = event.target;
-    if (name === 'type') {
-      const nextCategories = value === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
-      setForm((prev) => ({
-        ...prev,
-        type: value,
-        category: nextCategories.includes(prev.category) ? prev.category : nextCategories[0],
-      }));
-      return;
-    }
     setForm((prev) => ({ ...prev, [name]: value }));
   }
 
@@ -52,18 +63,37 @@ export function TransactionModal({ onClose, onSubmit, accounts, initial = null, 
   }
 
   return (
-    <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <form className="modal" onSubmit={handleSubmit}>
+    <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && !saving && onClose()}>
+      <form className="modal" onSubmit={handleSubmit} role="dialog" aria-modal="true" aria-labelledby="tx-modal-title">
         <div className="modal-head">
           <div>
-            <span className="eyebrow">{isEdit ? 'Ubah transaksi' : 'Arus kas'}</span>
-            <h2>{isEdit ? 'Edit transaksi' : 'Tambah transaksi'}</h2>
+            <span className="modal-kicker">{isEdit ? 'Ubah transaksi' : 'Catat arus kas'}</span>
+            <h2 id="tx-modal-title">{isEdit ? 'Edit transaksi' : 'Transaksi baru'}</h2>
           </div>
-          <button type="button" className="icon-button" onClick={onClose} aria-label="Tutup">
-            <X size={18} />
+          <button type="button" className="icon-button" onClick={onClose} aria-label="Tutup dialog">
+            <X size={18} aria-hidden="true" />
           </button>
         </div>
-        {error && <div className="form-error">{error}</div>}
+
+        <div className="segmented-control modal-segment" role="group" aria-label="Tipe transaksi">
+          <button
+            type="button"
+            className={form.type === 'expense' ? 'active' : ''}
+            onClick={() => selectType('expense')}
+          >
+            Pengeluaran
+          </button>
+          <button
+            type="button"
+            className={form.type === 'income' ? 'active' : ''}
+            onClick={() => selectType('income')}
+          >
+            Pemasukan
+          </button>
+        </div>
+
+        {error && <div className="form-error" role="alert">{error}</div>}
+
         <label>
           Judul transaksi
           <input
@@ -71,9 +101,11 @@ export function TransactionModal({ onClose, onSubmit, accounts, initial = null, 
             name="title"
             value={form.title}
             onChange={handleChange}
-            placeholder="cth. Makan siang tim"
+            placeholder={form.type === 'income' ? 'Nama sumber pemasukan' : 'Nama transaksi atau merchant'}
+            autoFocus
           />
         </label>
+
         <div className="form-grid">
           <label>
             Nominal (IDR)
@@ -85,15 +117,8 @@ export function TransactionModal({ onClose, onSubmit, accounts, initial = null, 
               name="amount"
               value={form.amount}
               onChange={handleChange}
-              placeholder="250000"
+              placeholder="0"
             />
-          </label>
-          <label>
-            Tipe
-            <select name="type" value={form.type} onChange={handleChange}>
-              <option value="expense">Pengeluaran</option>
-              <option value="income">Pemasukan</option>
-            </select>
           </label>
           <label>
             Kategori
@@ -103,33 +128,38 @@ export function TransactionModal({ onClose, onSubmit, accounts, initial = null, 
               ))}
             </select>
           </label>
+        </div>
+
+        <div className="form-grid">
+          <label>
+            Akun
+            <select name="account_id" value={form.account_id} onChange={handleChange}>
+              {accounts.map((acc) => (
+                <option key={acc.id} value={acc.id}>
+                  {acc.name} ({formatMoney(acc.balance, true)})
+                </option>
+              ))}
+            </select>
+          </label>
           <label>
             Tanggal
             <input required type="date" name="date" value={form.date} onChange={handleChange} />
           </label>
         </div>
+
         <label>
-          Akun
-          <select name="account_id" value={form.account_id} onChange={handleChange}>
-            {accounts.map((acc) => (
-              <option key={acc.id} value={acc.id}>
-                {acc.name} ({formatMoney(acc.balance, true)})
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Catatan <span className="optional">opsional</span>
+          Catatan <span className="optional">(opsional)</span>
           <textarea
             name="note"
             value={form.note}
             onChange={handleChange}
             rows="2"
-            placeholder="Tambahkan konteks singkat..."
+            placeholder="Tambahkan keterangan singkat jika perlu"
           />
         </label>
+
         <div className="modal-actions">
-          <button type="button" className="secondary-button" onClick={onClose}>Batal</button>
+          <button type="button" className="secondary-button" onClick={onClose} disabled={saving}>Batal</button>
           <button type="submit" className="primary-button" disabled={saving}>
             {saving ? 'Menyimpan...' : isEdit ? 'Simpan perubahan' : 'Simpan transaksi'}
           </button>
@@ -140,6 +170,7 @@ export function TransactionModal({ onClose, onSubmit, accounts, initial = null, 
 }
 
 export function BudgetModal({ onClose, onSubmit, existingCategories = [], initial = null, saving = false }) {
+  useEscapeClose(onClose, saving);
   const isEdit = Boolean(initial);
   const availableCategories = EXPENSE_CATEGORIES.filter((c) => !existingCategories.includes(c));
   const [category, setCategory] = useState(initial?.category || availableCategories[0] || 'Lainnya');
@@ -159,18 +190,18 @@ export function BudgetModal({ onClose, onSubmit, existingCategories = [], initia
   }
 
   return (
-    <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <form className="modal" onSubmit={handleSubmit}>
+    <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && !saving && onClose()}>
+      <form className="modal" onSubmit={handleSubmit} role="dialog" aria-modal="true" aria-labelledby="budget-modal-title">
         <div className="modal-head">
           <div>
-            <span className="eyebrow">Anggaran bulanan</span>
-            <h2>{isEdit ? `Ubah batas ${initial.category}` : 'Tambah anggaran'}</h2>
+            <span className="modal-kicker">Anggaran periode</span>
+            <h2 id="budget-modal-title">{isEdit ? `Ubah batas ${initial.category}` : 'Tambah anggaran'}</h2>
           </div>
-          <button type="button" className="icon-button" onClick={onClose} aria-label="Tutup">
-            <X size={18} />
+          <button type="button" className="icon-button" onClick={onClose} aria-label="Tutup dialog">
+            <X size={18} aria-hidden="true" />
           </button>
         </div>
-        {error && <div className="form-error">{error}</div>}
+        {error && <div className="form-error" role="alert">{error}</div>}
         {!isEdit && (
           <label>
             Kategori pengeluaran
@@ -191,7 +222,7 @@ export function BudgetModal({ onClose, onSubmit, existingCategories = [], initia
           </label>
         )}
         <label>
-          Batas bulanan (IDR)
+          Batas anggaran (IDR)
           <input
             required
             min="1"
@@ -199,11 +230,12 @@ export function BudgetModal({ onClose, onSubmit, existingCategories = [], initia
             type="number"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
-            placeholder="2000000"
+            placeholder="0"
+            autoFocus
           />
         </label>
         <div className="modal-actions">
-          <button type="button" className="secondary-button" onClick={onClose}>Batal</button>
+          <button type="button" className="secondary-button" onClick={onClose} disabled={saving}>Batal</button>
           <button type="submit" className="primary-button" disabled={saving}>
             {saving ? 'Menyimpan...' : 'Simpan anggaran'}
           </button>
@@ -214,6 +246,7 @@ export function BudgetModal({ onClose, onSubmit, existingCategories = [], initia
 }
 
 export function GoalModal({ onClose, onSubmit, saving = false }) {
+  useEscapeClose(onClose, saving);
   const [name, setName] = useState('');
   const [target, setTarget] = useState('');
   const [saved, setSaved] = useState('0');
@@ -237,25 +270,26 @@ export function GoalModal({ onClose, onSubmit, saving = false }) {
   }
 
   return (
-    <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <form className="modal" onSubmit={handleSubmit}>
+    <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && !saving && onClose()}>
+      <form className="modal" onSubmit={handleSubmit} role="dialog" aria-modal="true" aria-labelledby="goal-modal-title">
         <div className="modal-head">
           <div>
-            <span className="eyebrow">Target tabungan</span>
-            <h2>Buat target baru</h2>
+            <span className="modal-kicker">Kantong tabungan</span>
+            <h2 id="goal-modal-title">Buat target baru</h2>
           </div>
-          <button type="button" className="icon-button" onClick={onClose} aria-label="Tutup">
-            <X size={18} />
+          <button type="button" className="icon-button" onClick={onClose} aria-label="Tutup dialog">
+            <X size={18} aria-hidden="true" />
           </button>
         </div>
-        {error && <div className="form-error">{error}</div>}
+        {error && <div className="form-error" role="alert">{error}</div>}
         <label>
           Nama target
           <input
             required
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="cth. Laptop baru, Dana darurat"
+            placeholder="Nama tujuan tabungan"
+            autoFocus
           />
         </label>
         <div className="form-grid">
@@ -268,7 +302,7 @@ export function GoalModal({ onClose, onSubmit, saving = false }) {
               type="number"
               value={target}
               onChange={(e) => setTarget(e.target.value)}
-              placeholder="15000000"
+              placeholder="0"
             />
           </label>
           <label>
@@ -284,7 +318,7 @@ export function GoalModal({ onClose, onSubmit, saving = false }) {
           </label>
         </div>
         <div className="modal-actions">
-          <button type="button" className="secondary-button" onClick={onClose}>Batal</button>
+          <button type="button" className="secondary-button" onClick={onClose} disabled={saving}>Batal</button>
           <button type="submit" className="primary-button" disabled={saving}>
             {saving ? 'Menyimpan...' : 'Buat target'}
           </button>
@@ -295,6 +329,7 @@ export function GoalModal({ onClose, onSubmit, saving = false }) {
 }
 
 export function GoalContributeModal({ goal, onClose, onSubmit, saving = false }) {
+  useEscapeClose(onClose, saving);
   const [amount, setAmount] = useState('');
   const [error, setError] = useState('');
   const remaining = Math.max(0, goal.target - goal.saved);
@@ -313,15 +348,15 @@ export function GoalContributeModal({ goal, onClose, onSubmit, saving = false })
   }
 
   return (
-    <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <form className="modal" onSubmit={handleSubmit}>
+    <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && !saving && onClose()}>
+      <form className="modal" onSubmit={handleSubmit} role="dialog" aria-modal="true" aria-labelledby="fund-modal-title">
         <div className="modal-head">
           <div>
-            <span className="eyebrow">Tambah dana target</span>
-            <h2>{goal.name}</h2>
+            <span className="modal-kicker">Tambah dana target</span>
+            <h2 id="fund-modal-title">{goal.name}</h2>
           </div>
-          <button type="button" className="icon-button" onClick={onClose} aria-label="Tutup">
-            <X size={18} />
+          <button type="button" className="icon-button" onClick={onClose} aria-label="Tutup dialog">
+            <X size={18} aria-hidden="true" />
           </button>
         </div>
         <div className="goal-modal-summary">
@@ -334,7 +369,7 @@ export function GoalContributeModal({ goal, onClose, onSubmit, saving = false })
             <strong>{formatMoney(remaining)}</strong>
           </div>
         </div>
-        {error && <div className="form-error">{error}</div>}
+        {error && <div className="form-error" role="alert">{error}</div>}
         <label>
           Nominal tambahan (IDR)
           <input
@@ -344,7 +379,8 @@ export function GoalContributeModal({ goal, onClose, onSubmit, saving = false })
             type="number"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
-            placeholder="500000"
+            placeholder="0"
+            autoFocus
           />
         </label>
         <div className="chip-row">
@@ -360,7 +396,7 @@ export function GoalContributeModal({ goal, onClose, onSubmit, saving = false })
           ))}
         </div>
         <div className="modal-actions">
-          <button type="button" className="secondary-button" onClick={onClose}>Batal</button>
+          <button type="button" className="secondary-button" onClick={onClose} disabled={saving}>Batal</button>
           <button type="submit" className="primary-button" disabled={saving}>
             {saving ? 'Menyimpan...' : 'Tambah dana'}
           </button>
@@ -371,6 +407,7 @@ export function GoalContributeModal({ goal, onClose, onSubmit, saving = false })
 }
 
 export function AccountModal({ onClose, onSubmit, saving = false }) {
+  useEscapeClose(onClose, saving);
   const [name, setName] = useState('');
   const [type, setType] = useState('bank');
   const [openingBalance, setOpeningBalance] = useState('0');
@@ -389,25 +426,26 @@ export function AccountModal({ onClose, onSubmit, saving = false }) {
   }
 
   return (
-    <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <form className="modal" onSubmit={handleSubmit}>
+    <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && !saving && onClose()}>
+      <form className="modal" onSubmit={handleSubmit} role="dialog" aria-modal="true" aria-labelledby="acc-modal-title">
         <div className="modal-head">
           <div>
-            <span className="eyebrow">Dompet & rekening</span>
-            <h2>Tambah akun baru</h2>
+            <span className="modal-kicker">Dompet dan rekening</span>
+            <h2 id="acc-modal-title">Tambah akun baru</h2>
           </div>
-          <button type="button" className="icon-button" onClick={onClose} aria-label="Tutup">
-            <X size={18} />
+          <button type="button" className="icon-button" onClick={onClose} aria-label="Tutup dialog">
+            <X size={18} aria-hidden="true" />
           </button>
         </div>
-        {error && <div className="form-error">{error}</div>}
+        {error && <div className="form-error" role="alert">{error}</div>}
         <label>
           Nama akun
           <input
             required
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="cth. Mandiri, OVO, Dompet Utama"
+            placeholder="Nama rekening atau dompet"
+            autoFocus
           />
         </label>
         <div className="form-grid">
@@ -431,7 +469,7 @@ export function AccountModal({ onClose, onSubmit, saving = false }) {
           </label>
         </div>
         <div className="modal-actions">
-          <button type="button" className="secondary-button" onClick={onClose}>Batal</button>
+          <button type="button" className="secondary-button" onClick={onClose} disabled={saving}>Batal</button>
           <button type="submit" className="primary-button" disabled={saving}>
             {saving ? 'Menyimpan...' : 'Simpan akun'}
           </button>
@@ -442,7 +480,8 @@ export function AccountModal({ onClose, onSubmit, saving = false }) {
 }
 
 export function ProfileModal({ profile, theme, onSelectTheme, onClose, onSubmit, saving = false }) {
-  const [name, setName] = useState(profile?.name || 'Daffa');
+  useEscapeClose(onClose, saving);
+  const [name, setName] = useState(profile?.name || '');
   const [savingsTarget, setSavingsTarget] = useState(String(profile?.savingsTarget || 20));
   const [error, setError] = useState('');
 
@@ -463,25 +502,25 @@ export function ProfileModal({ profile, theme, onSelectTheme, onClose, onSubmit,
   }
 
   return (
-    <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <form className="modal" onSubmit={handleSubmit}>
+    <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && !saving && onClose()}>
+      <form className="modal" onSubmit={handleSubmit} role="dialog" aria-modal="true" aria-labelledby="profile-modal-title">
         <div className="modal-head">
           <div>
-            <span className="eyebrow">Pengaturan</span>
-            <h2>Profil &amp; Tampilan</h2>
+            <span className="modal-kicker">Pengaturan</span>
+            <h2 id="profile-modal-title">Profil &amp; Tampilan</h2>
           </div>
-          <button type="button" className="icon-button" onClick={onClose} aria-label="Tutup">
-            <X size={18} />
+          <button type="button" className="icon-button" onClick={onClose} aria-label="Tutup dialog">
+            <X size={18} aria-hidden="true" />
           </button>
         </div>
-        {error && <div className="form-error">{error}</div>}
+        {error && <div className="form-error" role="alert">{error}</div>}
         <label>
           Nama tampilan
           <input
             required
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Nama kamu"
+            placeholder="Nama tampilan"
           />
         </label>
         <label>
@@ -505,9 +544,10 @@ export function ProfileModal({ profile, theme, onSelectTheme, onClose, onSubmit,
                 key={item.id}
                 type="button"
                 className={`theme-option ${theme === item.id ? 'active' : ''}`}
+                aria-pressed={theme === item.id}
                 onClick={() => onSelectTheme(item.id)}
               >
-                <span className="theme-swatches">
+                <span className="theme-swatches" aria-hidden="true">
                   {item.swatches.map((hex, i) => (
                     <i key={i} style={{ background: hex }} />
                   ))}
@@ -521,7 +561,7 @@ export function ProfileModal({ profile, theme, onSelectTheme, onClose, onSubmit,
           </div>
         </div>
         <div className="modal-actions">
-          <button type="button" className="secondary-button" onClick={onClose}>Batal</button>
+          <button type="button" className="secondary-button" onClick={onClose} disabled={saving}>Batal</button>
           <button type="submit" className="primary-button" disabled={saving}>
             {saving ? 'Menyimpan...' : 'Simpan pengaturan'}
           </button>
@@ -540,13 +580,7 @@ export function ConfirmModal({
   onConfirm,
   busy = false,
 }) {
-  useEffect(() => {
-    function handleKey(event) {
-      if (event.key === 'Escape' && !busy) onClose();
-    }
-    document.addEventListener('keydown', handleKey);
-    return () => document.removeEventListener('keydown', handleKey);
-  }, [busy, onClose]);
+  useEscapeClose(onClose, busy);
 
   async function handleConfirm() {
     const ok = await onConfirm();
@@ -557,7 +591,7 @@ export function ConfirmModal({
     <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && !busy && onClose()}>
       <div className="modal confirm-modal" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title">
         <div className="confirm-head">
-          <span className="confirm-icon">
+          <span className="confirm-icon" aria-hidden="true">
             <AlertTriangle size={20} />
           </span>
           <button
@@ -565,9 +599,9 @@ export function ConfirmModal({
             className="icon-button"
             onClick={onClose}
             disabled={busy}
-            aria-label="Tutup"
+            aria-label="Tutup dialog"
           >
-            <X size={18} />
+            <X size={18} aria-hidden="true" />
           </button>
         </div>
         <h2 id="confirm-title">{title}</h2>

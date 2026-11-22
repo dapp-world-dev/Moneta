@@ -3,20 +3,20 @@ import {
   Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts';
 import {
-  AlertTriangle, ArrowDownLeft, ArrowUpRight, CheckCircle2, CreditCard, Download,
-  Pencil, PiggyBank, Plus, Search, Sparkles, Target, Trash2, TrendingDown, TrendingUp, Wallet,
+  AlertTriangle, CheckCircle2, Download, Pencil, Plus, Search, Target, Trash2,
 } from 'lucide-react';
-import {
-  CATEGORY_COLORS, CATEGORY_ICONS, accountTypeLabel, exportTransactionsCsv,
-  formatDate, formatMoney, normalizeAccountType, rangeLabel, shortMonthLabel,
-} from '../utils';
+import { AccountIcon, CategoryIcon } from './CategoryIcon';
 import { PeriodRangePicker } from './PeriodRangePicker';
+import {
+  CATEGORY_COLORS, accountTypeLabel, exportTransactionsCsv, formatMoney,
+  groupTransactionsByDate, normalizeAccountType, rangeLabel, shortMonthLabel,
+} from '../utils';
 
-function PageHeader({ eyebrow, title, subtitle, range, setRange, actions }) {
+function PageHeader({ periodText, title, subtitle, range, setRange, actions }) {
   return (
     <div className="page-heading">
       <div>
-        <p className="eyebrow">{eyebrow}</p>
+        {periodText && <p className="page-kicker">{periodText}</p>}
         <h1>{title}</h1>
         <p className="subheading">{subtitle}</p>
       </div>
@@ -72,6 +72,8 @@ export function TransactionsPage({
     return true;
   }), [transactions, type, category, accountId, query]);
 
+  const grouped = useMemo(() => groupTransactionsByDate(filtered), [filtered]);
+
   const totals = useMemo(() => {
     const income = filtered.filter((t) => t.type === 'income').reduce((s, t) => s + t.amount, 0);
     const expense = filtered.filter((t) => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
@@ -81,157 +83,182 @@ export function TransactionsPage({
   return (
     <>
       <PageHeader
-        eyebrow={rangeLabel(range.from, range.to)}
+        periodText={rangeLabel(range.from, range.to)}
         title="Transaksi"
-        subtitle="Catatan lengkap pemasukan dan pengeluaran yang bisa difilter serta diekspor."
+        subtitle="Semua pemasukan dan pengeluaran terkelompok per tanggal."
         range={range}
         setRange={setRange}
         actions={
           <>
             <button
+              type="button"
               className="secondary-button"
               onClick={() => exportTransactionsCsv(filtered, `${range.from}_${range.to}`)}
               disabled={!filtered.length}
             >
-              <Download size={16} /> Ekspor CSV
+              <Download size={16} aria-hidden="true" /> Ekspor CSV
             </button>
-            <button className="primary-button" onClick={onAdd}>
-              <Plus size={17} /> Tambah transaksi
+            <button type="button" className="primary-button" onClick={onAdd}>
+              <Plus size={17} aria-hidden="true" /> Catat transaksi
             </button>
           </>
         }
       />
 
-      <section className="kpi-strip">
-        <div className="kpi-card">
-          <span>Pemasukan (terfilter)</span>
+      <section className="summary-bar" aria-label="Ringkasan hasil filter">
+        <div className="summary-cell">
+          <span>Pemasukan</span>
           <strong className="tone-green">{formatMoney(totals.income)}</strong>
         </div>
-        <div className="kpi-card">
-          <span>Pengeluaran (terfilter)</span>
-          <strong className="tone-orange">{formatMoney(totals.expense)}</strong>
+        <div className="summary-cell">
+          <span>Pengeluaran</span>
+          <strong>{formatMoney(totals.expense)}</strong>
         </div>
-        <div className="kpi-card">
-          <span>Arus kas bersih</span>
+        <div className="summary-cell">
+          <span>Selisih bersih</span>
           <strong className={totals.net >= 0 ? 'tone-green' : 'tone-danger'}>
             {formatMoney(totals.net, false, true)}
           </strong>
         </div>
-        <div className="kpi-card">
-          <span>Jumlah aktivitas</span>
+        <div className="summary-cell">
+          <span>Total aktivitas</span>
           <strong>{filtered.length} transaksi</strong>
         </div>
       </section>
 
-      <section className="panel-card">
+      <section className="surface-card">
         <div className="filter-bar">
           <div className="search-box wide">
-            <Search size={16} />
+            <Search size={16} aria-hidden="true" />
             <input
+              aria-label="Cari transaksi"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Cari judul, kategori, atau catatan..."
+              placeholder="Cari judul, kategori, atau catatan"
             />
           </div>
-          <div className="pill-group">
+          <div className="segmented-control compact" role="group" aria-label="Filter tipe">
             {[
               { id: 'all', label: 'Semua' },
-              { id: 'income', label: 'Pemasukan' },
-              { id: 'expense', label: 'Pengeluaran' },
+              { id: 'income', label: 'Masuk' },
+              { id: 'expense', label: 'Keluar' },
             ].map((item) => (
               <button
                 key={item.id}
-                className={`filter-pill ${type === item.id ? 'active' : ''}`}
+                type="button"
+                className={type === item.id ? 'active' : ''}
                 onClick={() => setType(item.id)}
               >
                 {item.label}
               </button>
             ))}
           </div>
-          <select className="filter-select" value={category} onChange={(e) => setCategory(e.target.value)}>
+          <select
+            className="filter-select"
+            aria-label="Filter kategori"
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+          >
             <option value="all">Semua kategori</option>
             {categories.map((cat) => (
               <option key={cat} value={cat}>{cat}</option>
             ))}
           </select>
-          <select className="filter-select" value={accountId} onChange={(e) => setAccountId(e.target.value)}>
+          <select
+            className="filter-select"
+            aria-label="Filter akun"
+            value={accountId}
+            onChange={(e) => setAccountId(e.target.value)}
+          >
             <option value="all">Semua akun</option>
             {accounts.map((acc) => (
               <option key={acc.id} value={String(acc.id)}>{acc.name}</option>
             ))}
           </select>
           {hasActiveFilter && (
-            <button type="button" className="reset-link" onClick={resetFilters}>
+            <button type="button" className="text-link" onClick={resetFilters}>
               Reset filter
             </button>
           )}
         </div>
 
-        <div className="table-wrap">
-          {filtered.length === 0 ? (
-            <div className="empty-inline">Tidak ada transaksi yang cocok dengan filter saat ini.</div>
-          ) : (
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Transaksi</th>
-                  <th>Kategori</th>
-                  <th>Akun</th>
-                  <th>Tanggal</th>
-                  <th className="align-right">Nominal</th>
-                  <th className="align-right">Aksi</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((item) => {
-                  const positive = item.type === 'income';
-                  return (
-                    <tr key={item.id}>
-                      <td>
-                        <div className="table-tx">
-                          <span className={`transaction-icon sm ${positive ? 'income' : ''}`}>
-                            {CATEGORY_ICONS[item.category] || '•'}
-                          </span>
-                          <div>
+        {grouped.length === 0 ? (
+          <div className="empty-state">
+            <strong>{hasActiveFilter ? 'Tidak ada transaksi yang cocok' : 'Belum ada transaksi di periode ini'}</strong>
+            <p>
+              {hasActiveFilter
+                ? 'Ubah kata kunci pencarian atau reset filter untuk melihat semua catatan.'
+                : 'Catat pemasukan atau pengeluaran pertamamu untuk mulai memantau arus kas.'}
+            </p>
+            {hasActiveFilter ? (
+              <button type="button" className="secondary-button" onClick={resetFilters}>Reset filter</button>
+            ) : (
+              <button type="button" className="primary-button" onClick={onAdd}>
+                <Plus size={16} aria-hidden="true" /> Catat transaksi pertama
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="date-groups">
+            {grouped.map((group) => (
+              <div className="date-group" key={group.date}>
+                <div className="date-group-header">
+                  <span>{group.label}</span>
+                  <b className={group.dailyNet >= 0 ? 'tone-green' : ''}>
+                    {formatMoney(group.dailyNet, false, true)}
+                  </b>
+                </div>
+                <div className="activity-list">
+                  {group.items.map((item) => {
+                    const positive = item.type === 'income';
+                    return (
+                      <div className="activity-row" key={item.id}>
+                        <button
+                          type="button"
+                          className="activity-main"
+                          onClick={() => onEdit(item)}
+                        >
+                          <CategoryIcon category={item.category} type={item.type} size={17} />
+                          <div className="activity-copy">
                             <strong>{item.title}</strong>
-                            {item.note && <small>{item.note}</small>}
+                            <span>
+                              {item.category} · {item.account_name || `Akun #${item.account_id}`}
+                              {item.note ? ` · ${item.note}` : ''}
+                            </span>
                           </div>
-                        </div>
-                      </td>
-                      <td><span className="tag">{item.category}</span></td>
-                      <td className="muted-cell">{item.account_name || `#${item.account_id}`}</td>
-                      <td className="muted-cell">{formatDate(item.date)}</td>
-                      <td className={`align-right num ${positive ? 'tone-green' : ''}`}>
-                        {positive ? '+' : '-'} {formatMoney(item.amount)}
-                      </td>
-                      <td className="align-right">
+                          <strong className={`activity-amount ${positive ? 'positive' : ''}`}>
+                            {positive ? '+' : '-'}{formatMoney(item.amount)}
+                          </strong>
+                        </button>
                         <div className="row-actions">
                           <button
+                            type="button"
                             className="icon-button sm"
                             onClick={() => onEdit(item)}
                             aria-label={`Edit ${item.title}`}
                             title="Edit"
                           >
-                            <Pencil size={15} />
+                            <Pencil size={15} aria-hidden="true" />
                           </button>
                           <button
+                            type="button"
                             className="icon-button sm danger"
                             onClick={() => onDelete(item)}
                             disabled={busyId === `/api/transactions/${item.id}`}
                             aria-label={`Hapus ${item.title}`}
                             title="Hapus"
                           >
-                            <Trash2 size={15} />
+                            <Trash2 size={15} aria-hidden="true" />
                           </button>
                         </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          )}
-        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
     </>
   );
@@ -250,116 +277,121 @@ export function BudgetsPage({
   return (
     <>
       <PageHeader
-        eyebrow={rangeLabel(range.from, range.to)}
+        periodText={rangeLabel(range.from, range.to)}
         title="Anggaran"
-        subtitle="Pantau pemakaian anggaran tiap kategori pada rentang periode yang dipilih."
+        subtitle="Tetapkan batas pengeluaran per kategori agar saldo tetap aman."
         range={range}
         setRange={setRange}
         actions={
-          <button className="primary-button" onClick={onAddBudget}>
-            <Plus size={17} /> Tambah anggaran
+          <button type="button" className="primary-button" onClick={onAddBudget}>
+            <Plus size={17} aria-hidden="true" /> Tambah anggaran
           </button>
         }
       />
 
-      <section className="kpi-strip">
-        <div className="kpi-card">
+      <section className="summary-bar" aria-label="Ringkasan anggaran">
+        <div className="summary-cell">
           <span>Total anggaran</span>
           <strong>{formatMoney(totalBudget)}</strong>
         </div>
-        <div className="kpi-card">
-          <span>Total terpakai</span>
-          <strong className={overallPct > 100 ? 'tone-danger' : 'tone-orange'}>
-            {formatMoney(totalSpent)}
-          </strong>
+        <div className="summary-cell">
+          <span>Terpakai</span>
+          <strong className={overallPct > 100 ? 'tone-danger' : ''}>{formatMoney(totalSpent)}</strong>
         </div>
-        <div className="kpi-card">
-          <span>Sisa anggaran</span>
+        <div className="summary-cell">
+          <span>Sisa batas</span>
           <strong className={remaining < 0 ? 'tone-danger' : 'tone-green'}>
             {formatMoney(remaining, false, true)}
           </strong>
         </div>
-        <div className="kpi-card">
-          <span>Status pemakaian</span>
+        <div className="summary-cell">
+          <span>Status</span>
           <strong className={overCount > 0 ? 'tone-danger' : 'tone-green'}>
             {overCount > 0 ? `${overCount} melebihi batas` : `${overallPct}% terpakai`}
           </strong>
         </div>
       </section>
 
-      <section className="card-grid">
-        {budgets.map((budget) => {
-          const pct = budget.amount > 0 ? Math.round((budget.spent / budget.amount) * 100) : 0;
-          const isOver = budget.spent > budget.amount;
-          const isWarn = !isOver && pct >= 80;
-          const statusClass = isOver ? 'danger' : isWarn ? 'warn' : 'ok';
-          const statusLabel = isOver ? 'Melebihi batas' : isWarn ? 'Hampir habis' : 'Terkendali';
-          const diff = budget.amount - budget.spent;
+      {budgets.length === 0 ? (
+        <section className="surface-card empty-state">
+          <strong>Belum ada batas anggaran</strong>
+          <p>Buat anggaran untuk kategori utama seperti Makanan atau Tagihan agar pengeluaran lebih terkontrol.</p>
+          <button type="button" className="primary-button" onClick={onAddBudget}>
+            <Plus size={16} aria-hidden="true" /> Buat anggaran pertama
+          </button>
+        </section>
+      ) : (
+        <section className="card-grid">
+          {budgets.map((budget) => {
+            const pct = budget.amount > 0 ? Math.round((budget.spent / budget.amount) * 100) : 0;
+            const isOver = budget.spent > budget.amount;
+            const isWarn = !isOver && pct >= 80;
+            const statusClass = isOver ? 'danger' : isWarn ? 'warn' : 'ok';
+            const statusLabel = isOver ? 'Melebihi batas' : isWarn ? 'Hampir habis' : 'Terkendali';
+            const diff = budget.amount - budget.spent;
 
-          return (
-            <div className="budget-card" key={budget.id}>
-              <div className="budget-card-head">
-                <div className="budget-title">
-                  <span className="category-icon">{CATEGORY_ICONS[budget.category] || '•'}</span>
-                  <div>
-                    <strong>{budget.category}</strong>
-                    <span className={`status-pill ${statusClass}`}>{statusLabel}</span>
+            return (
+              <article className="vault-card" key={budget.id}>
+                <div className="vault-head">
+                  <div className="vault-title">
+                    <CategoryIcon category={budget.category} type="expense" size={18} />
+                    <div>
+                      <h2>{budget.category}</h2>
+                      <span className={`status-pill ${statusClass}`}>{statusLabel}</span>
+                    </div>
+                  </div>
+                  <div className="row-actions">
+                    <button
+                      type="button"
+                      className="icon-button sm"
+                      onClick={() => onEditBudget(budget)}
+                      title="Ubah batas"
+                      aria-label={`Ubah batas ${budget.category}`}
+                    >
+                      <Pencil size={15} aria-hidden="true" />
+                    </button>
+                    <button
+                      type="button"
+                      className="icon-button sm danger"
+                      onClick={() => onDeleteBudget(budget)}
+                      disabled={busyId === `/api/budgets/${budget.id}`}
+                      title="Hapus anggaran"
+                      aria-label={`Hapus anggaran ${budget.category}`}
+                    >
+                      <Trash2 size={15} aria-hidden="true" />
+                    </button>
                   </div>
                 </div>
-                <div className="row-actions">
-                  <button
-                    className="icon-button sm"
-                    onClick={() => onEditBudget(budget)}
-                    title="Ubah batas"
-                    aria-label={`Ubah batas ${budget.category}`}
-                  >
-                    <Pencil size={15} />
-                  </button>
-                  <button
-                    className="icon-button sm danger"
-                    onClick={() => onDeleteBudget(budget)}
-                    disabled={busyId === `/api/budgets/${budget.id}`}
-                    title="Hapus anggaran"
-                    aria-label={`Hapus anggaran ${budget.category}`}
-                  >
-                    <Trash2 size={15} />
-                  </button>
-                </div>
-              </div>
 
-              <div className="budget-amounts">
-                <div>
-                  <span>Terpakai</span>
-                  <strong>{formatMoney(budget.spent)}</strong>
+                <div className="vault-numbers">
+                  <div>
+                    <span>Terpakai</span>
+                    <strong>{formatMoney(budget.spent)}</strong>
+                  </div>
+                  <div className="align-right">
+                    <span>Batas</span>
+                    <strong>{formatMoney(budget.amount)}</strong>
+                  </div>
                 </div>
-                <div className="align-right">
-                  <span>Batas</span>
-                  <strong>{formatMoney(budget.amount)}</strong>
+
+                <div className="progress-track">
+                  <span
+                    className={`progress-fill ${statusClass}`}
+                    style={{ width: `${Math.min(100, pct)}%` }}
+                  />
                 </div>
-              </div>
 
-              <div className="progress-track">
-                <span
-                  className={`progress-fill ${statusClass}`}
-                  style={{ width: `${Math.min(100, pct)}%` }}
-                />
-              </div>
-
-              <div className="budget-foot">
-                <span>{pct}% digunakan</span>
-                <b className={diff < 0 ? 'tone-danger' : ''}>
-                  {diff < 0 ? `Lebih ${formatMoney(Math.abs(diff))}` : `Sisa ${formatMoney(diff)}`}
-                </b>
-              </div>
-            </div>
-          );
-        })}
-        {budgets.length === 0 && (
-          <div className="panel-card empty-inline">
-            Belum ada anggaran bulanan. Klik &ldquo;Tambah anggaran&rdquo; untuk mulai memantau pengeluaran.
-          </div>
-        )}
-      </section>
+                <div className="vault-foot">
+                  <span>{pct}% terpakai</span>
+                  <b className={diff < 0 ? 'tone-danger' : ''}>
+                    {diff < 0 ? `Lebih ${formatMoney(Math.abs(diff))}` : `Sisa ${formatMoney(diff)}`}
+                  </b>
+                </div>
+              </article>
+            );
+          })}
+        </section>
+      )}
     </>
   );
 }
@@ -373,94 +405,102 @@ export function GoalsPage({ data, onAddGoal, onFundGoal, onDeleteGoal, busyId })
   return (
     <>
       <PageHeader
-        eyebrow="Perencanaan"
+        periodText="Kantong tabungan"
         title="Target Finansial"
-        subtitle="Alokasikan tabungan secara rutin untuk mewujudkan rencana jangka pendek dan panjang."
+        subtitle="Sisihkan dana bertahap untuk setiap tujuan pentingmu."
         actions={
-          <button className="primary-button" onClick={onAddGoal}>
-            <Plus size={17} /> Buat target baru
+          <button type="button" className="primary-button" onClick={onAddGoal}>
+            <Plus size={17} aria-hidden="true" /> Buat target
           </button>
         }
       />
 
-      <section className="kpi-strip">
-        <div className="kpi-card">
+      <section className="summary-bar" aria-label="Ringkasan target tabungan">
+        <div className="summary-cell">
           <span>Total terkumpul</span>
           <strong className="tone-green">{formatMoney(totalSaved)}</strong>
         </div>
-        <div className="kpi-card">
+        <div className="summary-cell">
           <span>Total target</span>
           <strong>{formatMoney(totalTarget)}</strong>
         </div>
-        <div className="kpi-card">
+        <div className="summary-cell">
           <span>Sisa kebutuhan</span>
           <strong>{formatMoney(Math.max(0, totalTarget - totalSaved))}</strong>
         </div>
-        <div className="kpi-card">
-          <span>Progres keseluruhan</span>
+        <div className="summary-cell">
+          <span>Progres</span>
           <strong>{overallPct}%</strong>
         </div>
       </section>
 
-      <section className="card-grid">
-        {goals.map((goal) => {
-          const pct = Math.min(100, Math.round((goal.saved / goal.target) * 100));
-          const remaining = Math.max(0, goal.target - goal.saved);
-          const done = remaining === 0;
+      {goals.length === 0 ? (
+        <section className="surface-card empty-state">
+          <strong>Belum ada target tabungan</strong>
+          <p>Buat kantong tabungan pertamamu seperti dana darurat atau rencana liburan.</p>
+          <button type="button" className="primary-button" onClick={onAddGoal}>
+            <Plus size={16} aria-hidden="true" /> Buat target pertama
+          </button>
+        </section>
+      ) : (
+        <section className="card-grid">
+          {goals.map((goal) => {
+            const pct = Math.min(100, Math.round((goal.saved / goal.target) * 100));
+            const remaining = Math.max(0, goal.target - goal.saved);
+            const done = remaining === 0;
 
-          return (
-            <div className="budget-card" key={goal.id}>
-              <div className="budget-card-head">
-                <div className="budget-title">
-                  <span className="goal-icon"><Target size={17} /></span>
-                  <div>
-                    <strong>{goal.name}</strong>
-                    <span className={`status-pill ${done ? 'ok' : 'neutral'}`}>
-                      {done ? 'Tercapai' : `Kurang ${formatMoney(remaining, true)}`}
+            return (
+              <article className="vault-card" key={goal.id}>
+                <div className="vault-head">
+                  <div className="vault-title">
+                    <span className="cat-disc tone-green" aria-hidden="true">
+                      <Target size={18} />
                     </span>
+                    <div>
+                      <h2>{goal.name}</h2>
+                      <span className={`status-pill ${done ? 'ok' : 'neutral'}`}>
+                        {done ? 'Tercapai' : `Kurang ${formatMoney(remaining, true)}`}
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="icon-button sm danger"
+                    onClick={() => onDeleteGoal(goal)}
+                    disabled={busyId === `/api/goals/${goal.id}`}
+                    title="Hapus target"
+                    aria-label={`Hapus target ${goal.name}`}
+                  >
+                    <Trash2 size={15} aria-hidden="true" />
+                  </button>
+                </div>
+
+                <div className="vault-numbers">
+                  <div>
+                    <span>Terkumpul</span>
+                    <strong>{formatMoney(goal.saved)}</strong>
+                  </div>
+                  <div className="align-right">
+                    <span>Target</span>
+                    <strong>{formatMoney(goal.target)}</strong>
                   </div>
                 </div>
-                <button
-                  className="icon-button sm danger"
-                  onClick={() => onDeleteGoal(goal)}
-                  disabled={busyId === `/api/goals/${goal.id}`}
-                  title="Hapus target"
-                  aria-label={`Hapus target ${goal.name}`}
-                >
-                  <Trash2 size={15} />
-                </button>
-              </div>
 
-              <div className="budget-amounts">
-                <div>
-                  <span>Terkumpul</span>
-                  <strong>{formatMoney(goal.saved)}</strong>
+                <div className="progress-track">
+                  <span className="progress-fill ok" style={{ width: `${pct}%` }} />
                 </div>
-                <div className="align-right">
-                  <span>Target</span>
-                  <strong>{formatMoney(goal.target)}</strong>
+
+                <div className="vault-foot">
+                  <span>{pct}% tercapai</span>
+                  <button type="button" className="mini-primary" onClick={() => onFundGoal(goal)}>
+                    <Plus size={14} aria-hidden="true" /> Tambah dana
+                  </button>
                 </div>
-              </div>
-
-              <div className="progress-track">
-                <span className="progress-fill ok" style={{ width: `${pct}%` }} />
-              </div>
-
-              <div className="budget-foot">
-                <span>{pct}% tercapai</span>
-                <button className="mini-primary" onClick={() => onFundGoal(goal)}>
-                  <Plus size={14} /> Tambah dana
-                </button>
-              </div>
-            </div>
-          );
-        })}
-        {goals.length === 0 && (
-          <div className="panel-card empty-inline">
-            Belum ada target tabungan. Buat target pertamamu sekarang.
-          </div>
-        )}
-      </section>
+              </article>
+            );
+          })}
+        </section>
+      )}
     </>
   );
 }
@@ -515,21 +555,21 @@ export function InsightsPage({ range, setRange, data }) {
   if (summary.savingsRate >= savingsTarget) {
     insights.push({
       tone: 'ok',
-      title: `Rasio tabungan sehat (${summary.savingsRate}%)`,
-      body: `Kamu berhasil menyisihkan ${formatMoney(summary.net)} dari pemasukan periode ini. Pertahankan di atas target ${savingsTarget}%.`,
+      title: `Rasio tabungan di atas target (${summary.savingsRate}%)`,
+      body: `Kamu menyisihkan ${formatMoney(summary.net)} pada periode ini, melampaui target ${savingsTarget}%.`,
     });
   } else if (summary.income > 0) {
     insights.push({
       tone: 'warn',
       title: `Rasio tabungan di bawah target (${summary.savingsRate}%)`,
-      body: `Coba tinjau kategori pengeluaran terbesar agar bisa mencapai target tabungan ${savingsTarget}% pemasukan.`,
+      body: `Evaluasi kategori pengeluaran terbesar agar mendekati target tabungan ${savingsTarget}%.`,
     });
   }
   if (overBudgets.length > 0) {
     insights.push({
       tone: 'danger',
       title: `${overBudgets.length} kategori melebihi anggaran`,
-      body: `Perhatikan kategori ${overBudgets.map((b) => b.category).join(', ')} yang sudah melampaui batas.`,
+      body: `Kategori ${overBudgets.map((b) => b.category).join(', ')} melewati batas yang ditetapkan.`,
     });
   } else if (nearBudgets.length > 0) {
     insights.push({
@@ -540,7 +580,7 @@ export function InsightsPage({ range, setRange, data }) {
   } else if (budgets.length > 0) {
     insights.push({
       tone: 'ok',
-      title: 'Semua anggaran masih dalam batas aman',
+      title: 'Semua anggaran masih terkendali',
       body: 'Belum ada kategori pengeluaran yang melampaui 80% batas anggaran.',
     });
   }
@@ -548,53 +588,54 @@ export function InsightsPage({ range, setRange, data }) {
     const higher = summary.expenseChangePct > 0;
     insights.push({
       tone: higher ? 'warn' : 'ok',
-      title: `Pengeluaran ${higher ? 'naik' : 'turun'} ${Math.abs(summary.expenseChangePct)}% vs periode sebelumnya`,
-      body: `Pengeluaran periode sebelumnya ${formatMoney(summary.previousExpense)} dibanding ${formatMoney(summary.expense)} periode ini.`,
+      title: `Pengeluaran ${higher ? 'naik' : 'turun'} ${Math.abs(summary.expenseChangePct)}% vs periode lalu`,
+      body: `Periode sebelumnya ${formatMoney(summary.previousExpense)} dibanding ${formatMoney(summary.expense)} saat ini.`,
     });
   }
 
   return (
     <>
       <PageHeader
-        eyebrow="Laporan & Monitoring"
+        periodText={rangeLabel(range.from, range.to)}
         title="Laporan Keuangan"
-        subtitle={`Analisis performa arus kas & efisiensi anggaran untuk ${rangeLabel(range.from, range.to)}.`}
+        subtitle="Analisis rasio tabungan, distribusi pengeluaran, dan tren 6 bulan."
         range={range}
         setRange={setRange}
         actions={
           <button
+            type="button"
             className="secondary-button"
             onClick={() => exportTransactionsCsv(transactions, `${range.from}_${range.to}`)}
             disabled={!transactions.length}
           >
-            <Download size={16} /> Unduh laporan CSV
+            <Download size={16} aria-hidden="true" /> Unduh CSV
           </button>
         }
       />
 
-      <section className="kpi-strip">
-        <div className="kpi-card">
-          <span>Rasio tabungan (Savings rate)</span>
-          <strong className={summary.savingsRate >= savingsTarget ? 'tone-green' : 'tone-orange'}>
+      <section className="summary-bar" aria-label="Metrik kesehatan finansial">
+        <div className="summary-cell">
+          <span>Rasio tabungan</span>
+          <strong className={summary.savingsRate >= savingsTarget ? 'tone-green' : 'tone-warn'}>
             {summary.savingsRate}%
           </strong>
-          <small>Target ideal ≥ {savingsTarget}%</small>
+          <small>Target minimal {savingsTarget}%</small>
         </div>
-        <div className="kpi-card">
-          <span>Rata-rata pengeluaran / hari</span>
+        <div className="summary-cell">
+          <span>Pengeluaran rata-rata / hari</span>
           <strong>{formatMoney(dailyBurn)}</strong>
-          <small>Dihitung dari {elapsedDays} hari</small>
+          <small>Dalam {elapsedDays} hari</small>
         </div>
-        <div className="kpi-card">
-          <span>Kategori terbesar</span>
-          <strong>{categoryBreakdown[0]?.name || '—'}</strong>
+        <div className="summary-cell">
+          <span>Pos pengeluaran terbesar</span>
+          <strong>{categoryBreakdown[0]?.name || 'Belum ada'}</strong>
           <small>
             {categoryBreakdown[0]
               ? `${formatMoney(categoryBreakdown[0].value, true)} (${categoryBreakdown[0].pct}%)`
-              : 'Belum ada pengeluaran'}
+              : 'Belum ada transaksi keluar'}
           </small>
         </div>
-        <div className="kpi-card">
+        <div className="summary-cell">
           <span>Surplus / Defisit</span>
           <strong className={summary.net >= 0 ? 'tone-green' : 'tone-danger'}>
             {formatMoney(summary.net, false, true)}
@@ -603,13 +644,12 @@ export function InsightsPage({ range, setRange, data }) {
         </div>
       </section>
 
-      <section className="overview-grid">
-        <div className="chart-card">
-          <div className="chart-header">
+      <section className="analytics-grid">
+        <div className="surface-card chart-panel">
+          <div className="panel-head">
             <div>
-              <span className="chart-title">Tren 6 bulan terakhir</span>
-              <strong>Pemasukan vs Pengeluaran</strong>
-              <span className="chart-caption">Perbandingan arus kas bulanan</span>
+              <h2>Pemasukan dibanding pengeluaran, 6 bulan terakhir</h2>
+              <p>Tren arus kas bulanan hingga akhir periode terpilih.</p>
             </div>
             <div className="legend">
               <span><i className="legend-dot income-dot" /> Masuk</span>
@@ -618,43 +658,45 @@ export function InsightsPage({ range, setRange, data }) {
           </div>
           <div className="chart-wrap tall">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={trend} margin={{ top: 14, right: 6, left: -14, bottom: 0 }} barGap={6}>
-                <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: '#8f9692', fontSize: 11 }} />
+              <BarChart data={trend} margin={{ top: 14, right: 6, left: -12, bottom: 0 }} barGap={6}>
+                <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: 'var(--muted)', fontSize: 11 }} />
                 <YAxis
                   axisLine={false}
                   tickLine={false}
-                  tick={{ fill: '#8f9692', fontSize: 10 }}
+                  tick={{ fill: 'var(--muted)', fontSize: 10 }}
                   tickFormatter={(v) => formatMoney(v, true)}
                 />
                 <Tooltip content={<TrendTooltip />} />
-                <Bar dataKey="income" name="Pemasukan" fill="#a9db48" radius={[6, 6, 0, 0]} maxBarSize={26} />
-                <Bar dataKey="expense" name="Pengeluaran" fill="#e78350" radius={[6, 6, 0, 0]} maxBarSize={26} />
+                <Bar dataKey="income" name="Pemasukan" fill="#16a34a" radius={[6, 6, 0, 0]} maxBarSize={26} />
+                <Bar dataKey="expense" name="Pengeluaran" fill="#ea580c" radius={[6, 6, 0, 0]} maxBarSize={26} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        <div className="spending-card">
-          <div className="chart-header">
+        <div className="surface-card chart-panel">
+          <div className="panel-head">
             <div>
-              <span className="chart-title">Distribusi pengeluaran</span>
-              <strong>{formatMoney(summary.expense, true)}</strong>
-              <span className="chart-caption">{categoryBreakdown.length} kategori aktif</span>
+              <h2>Ke mana uang keluar?</h2>
+              <p>Total {formatMoney(summary.expense)} dari {categoryBreakdown.length} kategori.</p>
             </div>
           </div>
           {categoryBreakdown.length === 0 ? (
-            <div className="empty-inline">Belum ada pengeluaran di bulan ini.</div>
+            <div className="empty-state compact">
+              <strong>Belum ada pengeluaran</strong>
+              <p>Distribusi kategori akan muncul begitu kamu mencatat pengeluaran.</p>
+            </div>
           ) : (
             <>
               <div className="donut-wrap">
-                <ResponsiveContainer width="100%" height={160}>
+                <ResponsiveContainer width="100%" height={168}>
                   <PieChart>
                     <Pie
                       data={categoryBreakdown}
                       dataKey="value"
                       nameKey="name"
-                      innerRadius={48}
-                      outerRadius={72}
+                      innerRadius={50}
+                      outerRadius={74}
                       paddingAngle={3}
                     >
                       {categoryBreakdown.map((entry) => (
@@ -668,7 +710,7 @@ export function InsightsPage({ range, setRange, data }) {
               <div className="breakdown-list">
                 {categoryBreakdown.map((item) => (
                   <div className="breakdown-row" key={item.name}>
-                    <i style={{ background: item.color }} />
+                    <i style={{ background: item.color }} aria-hidden="true" />
                     <span>{item.name}</span>
                     <small>{item.pct}%</small>
                     <b>{formatMoney(item.value, true)}</b>
@@ -680,28 +722,29 @@ export function InsightsPage({ range, setRange, data }) {
         </div>
       </section>
 
-      <section className="panel-card insights-panel">
-        <div className="card-section-header flush">
-          <div>
-            <h2>Ringkasan & Rekomendasi Otomatis</h2>
-            <p>Dihasilkan langsung dari data transaksi dan anggaranmu bulan ini.</p>
-          </div>
-          <Sparkles size={18} className="tone-green" />
-        </div>
-        <div className="insight-grid">
-          {insights.map((item, idx) => (
-            <div className={`insight-item ${item.tone}`} key={idx}>
-              <div className="insight-icon">
-                {item.tone === 'ok' ? <CheckCircle2 size={17} /> : <AlertTriangle size={17} />}
-              </div>
-              <div>
-                <strong>{item.title}</strong>
-                <p>{item.body}</p>
-              </div>
+      {insights.length > 0 && (
+        <section className="surface-card insights-block">
+          <div className="panel-head">
+            <div>
+              <h2>Catatan kondisi keuangan</h2>
+              <p>Ringkasan otomatis berdasarkan transaksi dan anggaran periode ini.</p>
             </div>
-          ))}
-        </div>
-      </section>
+          </div>
+          <div className="insight-grid">
+            {insights.map((item, idx) => (
+              <div className={`insight-item ${item.tone}`} key={idx}>
+                <span className="insight-icon" aria-hidden="true">
+                  {item.tone === 'ok' ? <CheckCircle2 size={17} /> : <AlertTriangle size={17} />}
+                </span>
+                <div>
+                  <strong>{item.title}</strong>
+                  <p>{item.body}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
     </>
   );
 }
@@ -713,23 +756,23 @@ export function AccountsPage({ data, onAddAccount, onDeleteAccount, onViewAccoun
   return (
     <>
       <PageHeader
-        eyebrow="Dompet & Rekening"
+        periodText="Dompet & rekening"
         title="Akun Keuangan"
-        subtitle="Kelola rekening bank, e-wallet, dan uang tunai dalam satu tempat."
+        subtitle="Pantau saldo setiap rekening bank, e-wallet, dan kas tunai."
         actions={
-          <button className="primary-button" onClick={onAddAccount}>
-            <Plus size={17} /> Tambah akun
+          <button type="button" className="primary-button" onClick={onAddAccount}>
+            <Plus size={17} aria-hidden="true" /> Tambah akun
           </button>
         }
       />
 
-      <section className="kpi-strip">
-        <div className="kpi-card">
-          <span>Total kekayaan likuid</span>
+      <section className="summary-bar" aria-label="Ringkasan akun">
+        <div className="summary-cell">
+          <span>Total saldo likuid</span>
           <strong>{formatMoney(totalBalance)}</strong>
         </div>
-        <div className="kpi-card">
-          <span>Jumlah akun aktif</span>
+        <div className="summary-cell">
+          <span>Akun aktif</span>
           <strong>{accounts.length} akun</strong>
         </div>
       </section>
@@ -738,39 +781,38 @@ export function AccountsPage({ data, onAddAccount, onDeleteAccount, onViewAccoun
         {accounts.map((acc) => {
           const norm = normalizeAccountType(acc.type);
           return (
-            <div className="budget-card" key={acc.id}>
-              <div className="budget-card-head">
-                <div className="budget-title">
-                  <span className={`account-logo ${norm}`}>
-                    {norm === 'bank' ? 'B' : norm === 'ewallet' ? '◉' : '◒'}
-                  </span>
+            <article className={`wallet-card full type-${norm}`} key={acc.id}>
+              <div className="wallet-card-top">
+                <div className="vault-title">
+                  <AccountIcon type={acc.type} size={18} />
                   <div>
-                    <strong>{acc.name}</strong>
-                    <span className="status-pill neutral">{accountTypeLabel(acc.type)}</span>
+                    <h2>{acc.name}</h2>
+                    <span className="wallet-type-label">{accountTypeLabel(acc.type)}</span>
                   </div>
                 </div>
                 <button
+                  type="button"
                   className="icon-button sm danger"
                   onClick={() => onDeleteAccount(acc)}
                   disabled={busyId === `/api/accounts/${acc.id}`}
                   title="Hapus akun"
                   aria-label={`Hapus akun ${acc.name}`}
                 >
-                  <Trash2 size={15} />
+                  <Trash2 size={15} aria-hidden="true" />
                 </button>
               </div>
-              <div className="account-balance-big">{formatMoney(acc.balance)}</div>
-              <div className="budget-foot">
+              <div className="wallet-card-balance">{formatMoney(acc.balance)}</div>
+              <div className="vault-foot">
                 <span>Saldo awal: {formatMoney(acc.opening_balance, true)}</span>
                 <button
                   type="button"
-                  className="reset-link"
+                  className="text-link"
                   onClick={() => onViewAccountTransactions?.(acc.id)}
                 >
-                  {acc.transaction_count ?? 0} transaksi →
+                  Lihat {acc.transaction_count ?? 0} transaksi
                 </button>
               </div>
-            </div>
+            </article>
           );
         })}
       </section>
