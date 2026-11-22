@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import {
   AlertTriangle, ArrowDownLeft, ArrowUpRight, Bell, CheckCircle2, ChevronDown,
-  ChevronRight, CreditCard, Download, Eye, EyeOff, FileText, Home, LogOut, Menu, Pencil,
+  ChevronRight, CreditCard, Download, Eye, EyeOff, FileText, Home, LogOut, Menu, Palette, Pencil,
   Plus, Search, Settings, Sparkles, Target, Trash2, TrendingDown, TrendingUp,
   Wallet, X, Zap,
 } from 'lucide-react';
@@ -16,7 +16,7 @@ import {
 } from './components/Pages';
 import { PeriodRangePicker } from './components/PeriodRangePicker';
 import {
-  CATEGORY_ICONS, accountTypeLabel, buildRangeChartData, currentMonthRange,
+  CATEGORY_ICONS, THEMES, accountTypeLabel, buildRangeChartData, currentMonthRange,
   exportTransactionsCsv, formatMoney, formatShortDate, greetingForNow,
   normalizeAccountType, rangeLabel, shortMonthLabel,
 } from './utils';
@@ -37,6 +37,12 @@ const KEEPALIVE_INTERVAL_MS = 3 * 60 * 1000; // perpanjang sesi server tiap 3 me
 function App() {
   const [authState, setAuthState] = useState({ checked: false, authenticated: false, user: null });
   const [sessionNotice, setSessionNotice] = useState('');
+  const [theme, setTheme] = useState(() => {
+    try {
+      const saved = localStorage.getItem('moneta_theme');
+      return THEMES.some((t) => t.id === saved) ? saved : 'modern';
+    } catch { return 'modern'; }
+  });
   const [range, setRange] = useState(currentMonthRange);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -62,6 +68,11 @@ function App() {
   const [showAccountModal, setShowAccountModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(null);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    try { localStorage.setItem('moneta_theme', theme); } catch { /* ignore */ }
+  }, [theme]);
 
   useEffect(() => {
     fetch('/api/auth/me')
@@ -376,6 +387,47 @@ function App() {
           </div>
 
           <div className="topbar-actions" ref={topbarActionsRef}>
+            <div className="popover-anchor">
+              <button
+                type="button"
+                className={`icon-button ${openMenu === 'theme' ? 'is-open' : ''}`}
+                aria-label="Pilih tema tampilan"
+                aria-expanded={openMenu === 'theme'}
+                title="Tema tampilan"
+                onClick={() => setOpenMenu(openMenu === 'theme' ? null : 'theme')}
+              >
+                <Palette size={19} />
+              </button>
+              {openMenu === 'theme' && (
+                <div className="popover-panel theme-popover">
+                  <div className="popover-head">
+                    <strong>Tema tampilan</strong>
+                    <span>{THEMES.find((t) => t.id === theme)?.name}</span>
+                  </div>
+                  <div className="theme-grid compact">
+                    {THEMES.map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        className={`theme-option ${theme === item.id ? 'active' : ''}`}
+                        onClick={() => { setTheme(item.id); setOpenMenu(null); }}
+                      >
+                        <span className="theme-swatches">
+                          {item.swatches.map((hex, i) => (
+                            <i key={i} style={{ background: hex }} />
+                          ))}
+                        </span>
+                        <div>
+                          <strong>{item.name}</strong>
+                          <span>{item.desc}</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="popover-anchor">
               <button
                 type="button"
@@ -834,6 +886,8 @@ function App() {
       {showProfileModal && (
         <ProfileModal
           profile={profile}
+          theme={theme}
+          onSelectTheme={setTheme}
           saving={Boolean(busyId)}
           onClose={() => setShowProfileModal(false)}
           onSubmit={(payload) => mutate('/api/profile', 'PUT', payload, 'Pengaturan profil disimpan.')}

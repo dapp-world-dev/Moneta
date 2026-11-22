@@ -66,6 +66,15 @@ export const PERIOD_PRESETS = [
   { id: 'this_year', label: 'Tahun ini' },
 ];
 
+export const THEMES = [
+  { id: 'modern', name: 'Modern', desc: 'Bersih & limau', swatches: ['#17191a', '#f4f5f2', '#d2f975'] },
+  { id: 'dark', name: 'Dark', desc: 'Mode gelap fokus', swatches: ['#0b0d0c', '#171b1a', '#c8f560'] },
+  { id: 'cool', name: 'Cool', desc: 'Biru modern & segar', swatches: ['#0f172a', '#f1f5f9', '#38bdf8'] },
+  { id: 'calm', name: 'Calm', desc: 'Hijau sage & hangat', swatches: ['#1f2c27', '#f6f4ef', '#a7e3be'] },
+  { id: 'cute', name: 'Cute', desc: 'Nuansa pink lembut', swatches: ['#331d2c', '#fdf4f7', '#ff9ec7'] },
+  { id: 'lavender', name: 'Lavender', desc: 'Ungu pastel elegan', swatches: ['#1e1b38', '#f5f3ff', '#c4b5fd'] },
+];
+
 export function formatMoney(value, short = false, signed = false) {
   const num = Number(value) || 0;
   const prefix = num < 0 ? '-' : signed && num > 0 ? '+' : '';

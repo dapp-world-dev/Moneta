@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { AlertTriangle, X } from 'lucide-react';
-import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, formatMoney, todayIso } from '../utils';
+import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, THEMES, formatMoney, todayIso } from '../utils';
 
 export function TransactionModal({ onClose, onSubmit, accounts, initial = null, saving = false }) {
   const isEdit = Boolean(initial);
@@ -441,7 +441,7 @@ export function AccountModal({ onClose, onSubmit, saving = false }) {
   );
 }
 
-export function ProfileModal({ profile, onClose, onSubmit, saving = false }) {
+export function ProfileModal({ profile, theme, onSelectTheme, onClose, onSubmit, saving = false }) {
   const [name, setName] = useState(profile?.name || 'Daffa');
   const [savingsTarget, setSavingsTarget] = useState(String(profile?.savingsTarget || 20));
   const [error, setError] = useState('');
@@ -468,7 +468,7 @@ export function ProfileModal({ profile, onClose, onSubmit, saving = false }) {
         <div className="modal-head">
           <div>
             <span className="eyebrow">Pengaturan</span>
-            <h2>Profil &amp; Target Tabungan</h2>
+            <h2>Profil &amp; Tampilan</h2>
           </div>
           <button type="button" className="icon-button" onClick={onClose} aria-label="Tutup">
             <X size={18} />
@@ -497,6 +497,29 @@ export function ProfileModal({ profile, onClose, onSubmit, saving = false }) {
             placeholder="20"
           />
         </label>
+        <div className="theme-section">
+          <span className="theme-section-label">Tema tampilan</span>
+          <div className="theme-grid">
+            {THEMES.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                className={`theme-option ${theme === item.id ? 'active' : ''}`}
+                onClick={() => onSelectTheme(item.id)}
+              >
+                <span className="theme-swatches">
+                  {item.swatches.map((hex, i) => (
+                    <i key={i} style={{ background: hex }} />
+                  ))}
+                </span>
+                <div>
+                  <strong>{item.name}</strong>
+                  <span>{item.desc}</span>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
         <div className="modal-actions">
           <button type="button" className="secondary-button" onClick={onClose}>Batal</button>
           <button type="submit" className="primary-button" disabled={saving}>
