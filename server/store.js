@@ -38,7 +38,7 @@ function pctChange(current, previous) {
 }
 
 export const DEFAULT_CATEGORIES = {
-  expense: ['Makanan', 'Transportasi', 'Tagihan', 'Hiburan', 'Belanja', 'Kesehatan', 'Lainnya'],
+  expense: ['Makanan', 'Transportasi', 'Housing', 'Tagihan', 'Hiburan', 'Belanja', 'Kesehatan', 'Lainnya'],
   income: ['Gaji', 'Freelance', 'Investasi', 'Bonus', 'Lainnya'],
 };
 

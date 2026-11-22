@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   ArrowLeftRight, Banknote, Briefcase, Building2, Car, Clapperboard,
-  Gift, HeartPulse, Laptop, Receipt, ShoppingBag, Smartphone, Tag,
+  Gift, HeartPulse, Home, Laptop, Receipt, ShoppingBag, Smartphone, Tag,
   TrendingUp, Utensils,
 } from 'lucide-react';
 
@@ -10,6 +10,7 @@ const ICON_MAP = {
   Food: { Icon: Utensils, tone: 'amber' },
   Transportasi: { Icon: Car, tone: 'blue' },
   Transport: { Icon: Car, tone: 'blue' },
+  Housing: { Icon: Home, tone: 'teal' },
   Tagihan: { Icon: Receipt, tone: 'slate' },
   Bills: { Icon: Receipt, tone: 'slate' },
   Hiburan: { Icon: Clapperboard, tone: 'violet' },

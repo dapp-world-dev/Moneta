@@ -12,6 +12,7 @@ const compact = new Intl.NumberFormat('id-ID', {
 export const EXPENSE_CATEGORIES = [
   'Makanan',
   'Transportasi',
+  'Housing',
   'Tagihan',
   'Hiburan',
   'Belanja',
