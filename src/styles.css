@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Moneta Design System — Revolut Wallet Inspired (Opsi B: Lime Modern + 5 Themes)
+   Moneta Design System: Revolut Wallet Inspired (Opsi B: Lime Modern + 5 Themes)
    ========================================================================== */
 
 :root {
@@ -7,7 +7,7 @@
   font-synthesis: none;
   color-scheme: light;
 
-  /* Modern (Default — Revolut crisp surfaces + Moneta electric lime accent) */
+  /* Modern (Default: Revolut crisp surfaces + Moneta electric lime accent) */
   --bg: #f3f4f2;
   --surface: #ffffff;
   --surface-subtle: #eff1ed;
@@ -314,16 +314,11 @@ select:disabled {
   border-radius: 10px;
   display: inline-grid;
   place-items: center;
-  background: var(--btn-primary-bg);
-  color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
   font-weight: 800;
   font-size: 15px;
   flex-shrink: 0;
-}
-
-:root[data-theme='dark'] .brand-mark {
-  background: var(--accent);
-  color: var(--accent-ink);
 }
 
 .collapse-btn {
@@ -581,8 +576,8 @@ select:disabled {
   border-radius: 50%;
   display: grid;
   place-items: center;
-  background: var(--btn-primary-bg);
-  color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
   font-size: 12px;
   font-weight: 800;
   flex-shrink: 0;
@@ -591,11 +586,6 @@ select:disabled {
 .avatar.sm {
   width: 32px;
   height: 32px;
-}
-
-:root[data-theme='dark'] .avatar {
-  background: var(--accent);
-  color: var(--accent-ink);
 }
 
 /* Popovers */
@@ -1656,7 +1646,7 @@ select:disabled {
   gap: 8px;
   background: var(--surface-subtle);
   border: 1px solid transparent;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-control);
   padding: 0 12px;
   color: var(--muted);
 }
@@ -1664,11 +1654,12 @@ select:disabled {
 .search-box:focus-within {
   background: var(--surface);
   border-color: var(--accent-strong);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 .search-box input {
   border: 0;
-  outline: none;
+  outline: 2px solid transparent;
   background: transparent;
   padding: 8px 0;
   width: 120px;
@@ -1688,7 +1679,7 @@ select:disabled {
 .filter-select {
   height: 36px;
   border: 1px solid var(--line);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-control);
   background: var(--surface);
   color: var(--ink);
   padding: 0 12px;
@@ -2220,7 +2211,7 @@ select:disabled {
 .modal textarea:focus {
   border-color: var(--accent-strong);
   box-shadow: 0 0 0 3px var(--accent-soft);
-  outline: none;
+  outline: 2px solid transparent;
 }
 
 .form-grid {
@@ -2509,7 +2500,7 @@ select:disabled {
   background: transparent;
   padding: 12px 0;
   font-size: 13.5px;
-  outline: none;
+  outline: 2px solid transparent;
   color: var(--ink);
 }
 
@@ -2670,11 +2661,17 @@ select:disabled {
   }
   .profile-chip {
     padding: 4px 8px 4px 4px;
-    min-height: 40px;
+    min-height: 44px;
   }
-  .icon-button {
-    width: 42px;
-    height: 42px;
+  .icon-button,
+  .icon-button.sm {
+    width: 44px;
+    height: 44px;
+  }
+  .filter-select,
+  .filter-select.compact {
+    min-height: 44px;
+    height: 44px;
   }
 
   .content {
@@ -2695,7 +2692,7 @@ select:disabled {
   }
   .range-preset {
     width: 100%;
-    min-height: 36px;
+    min-height: 44px;
   }
   .range-dates {
     width: 100%;
@@ -2704,6 +2701,7 @@ select:disabled {
   .range-dates input {
     flex: 1;
     min-width: 0;
+    min-height: 44px;
   }
 
   .primary-button,

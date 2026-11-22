@@ -32,7 +32,7 @@ export function PeriodRangePicker({ range, onChange }) {
   return (
     <div className="range-picker">
       <div className="range-picker-label">
-        <Calendar size={12} />
+        <Calendar size={12} aria-hidden="true" />
         <span>Periode</span>
       </div>
       <div className="range-picker-controls">

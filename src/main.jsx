@@ -64,6 +64,14 @@ function App() {
   const [openMenu, setOpenMenu] = useState(null);
   const topbarActionsRef = useRef(null);
   const heroMenuRef = useRef(null);
+  const mobileMenuTriggerRef = useRef(null);
+
+  function closeSidebar(restoreFocus = false) {
+    setSidebarOpen(false);
+    if (restoreFocus) {
+      requestAnimationFrame(() => mobileMenuTriggerRef.current?.focus());
+    }
+  }
 
   const [txModal, setTxModal] = useState(null);
   const [budgetModal, setBudgetModal] = useState(null);
@@ -185,7 +193,7 @@ function App() {
     function handleEsc(event) {
       if (event.key === 'Escape') {
         setOpenMenu(null);
-        setSidebarOpen(false);
+        if (sidebarOpen) closeSidebar(true);
       }
     }
     document.addEventListener('mousedown', handleOutside);
@@ -394,6 +402,8 @@ function App() {
       onNavigate={navigateTo}
       sidebarOpen={sidebarOpen}
       setSidebarOpen={setSidebarOpen}
+      onCloseSidebar={() => closeSidebar(true)}
+      mobileMenuTriggerRef={mobileMenuTriggerRef}
       sidebarCollapsed={sidebarCollapsed}
       setSidebarCollapsed={setSidebarCollapsed}
       toast={toast}
@@ -1129,8 +1139,8 @@ function App() {
 }
 
 function Shell({
-  children, activePage, onNavigate, sidebarOpen, setSidebarOpen,
-  sidebarCollapsed, setSidebarCollapsed, toast, overBudgetCount,
+  children, activePage, onNavigate, sidebarOpen, setSidebarOpen, onCloseSidebar,
+  mobileMenuTriggerRef, sidebarCollapsed, setSidebarCollapsed, toast, overBudgetCount,
   profileName, username, onOpenSettings, onLogout,
 }) {
   const primaryNav = [
@@ -1165,7 +1175,7 @@ function Shell({
           <button
             type="button"
             className="sidebar-close"
-            onClick={() => setSidebarOpen(false)}
+            onClick={onCloseSidebar}
             aria-label="Tutup menu"
           >
             <X size={19} aria-hidden="true" />
@@ -1249,7 +1259,7 @@ function Shell({
         <button
           type="button"
           className="sidebar-backdrop"
-          onClick={() => setSidebarOpen(false)}
+          onClick={onCloseSidebar}
           aria-label="Tutup menu"
         />
       )}
@@ -1278,8 +1288,10 @@ function Shell({
           );
         })}
         <button
+          ref={mobileMenuTriggerRef}
           type="button"
           className={activePage === 'Insights' || activePage === 'Accounts' ? 'active' : ''}
+          aria-expanded={sidebarOpen}
           onClick={() => setSidebarOpen(true)}
           aria-label="Buka menu lainnya"
         >
