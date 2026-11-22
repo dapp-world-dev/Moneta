@@ -17,6 +17,7 @@
   --muted: #5c635f;
   --line: #e4e7e2;
   --line-strong: #cfd4cc;
+  --input-border: #767e79;
 
   --accent: #c8f35b;
   --accent-ink: #141a10;
@@ -59,6 +60,7 @@
   --muted: #8b95a5;
   --line: #282d37;
   --line-strong: #373e4c;
+  --input-border: #636d80;
 
   --accent: #2563eb;
   --accent-ink: #ffffff;
@@ -95,10 +97,11 @@
   --muted: #526071;
   --line: #dbe4ef;
   --line-strong: #bfd0e4;
+  --input-border: #68788c;
 
-  --accent: #0075eb;
+  --accent: #0068d1;
   --accent-ink: #ffffff;
-  --accent-strong: #005ec0;
+  --accent-strong: #0054ad;
   --accent-soft: rgba(0, 117, 235, 0.12);
 
   --btn-primary-bg: #0f172a;
@@ -121,6 +124,7 @@
   --muted: #5a665f;
   --line: #e3ddd0;
   --line-strong: #cdc5b4;
+  --input-border: #747e77;
 
   --accent: #276749;
   --accent-ink: #ffffff;
@@ -147,6 +151,7 @@
   --muted: #724e63;
   --line: #f1d4e1;
   --line-strong: #e5b7cb;
+  --input-border: #886477;
 
   --accent: #c81e6a;
   --accent-ink: #ffffff;
@@ -173,6 +178,7 @@
   --muted: #595280;
   --line: #e2dcf7;
   --line-strong: #cac0ee;
+  --input-border: #736c99;
 
   --accent: #6d28d9;
   --accent-ink: #ffffff;
@@ -241,9 +247,35 @@ select:disabled {
   outline-offset: 2px;
 }
 
+input,
+select,
+textarea {
+  scroll-margin-bottom: 120px;
+}
+
+.skip-link {
+  position: fixed;
+  top: -100px;
+  left: 16px;
+  z-index: 100;
+  background: var(--btn-primary-bg);
+  color: var(--btn-primary-ink);
+  padding: 10px 16px;
+  border-radius: var(--radius-pill);
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+  box-shadow: var(--shadow-popover);
+}
+
+.skip-link:focus {
+  top: 14px;
+}
+
 /* App Shell & Adaptive Sidebar */
 .app-shell {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
 }
 
@@ -251,6 +283,7 @@ select:disabled {
   width: 244px;
   min-width: 244px;
   height: 100vh;
+  height: 100dvh;
   position: sticky;
   top: 0;
   background: var(--surface);
@@ -845,7 +878,7 @@ select:disabled {
   align-items: center;
   gap: 6px;
   background: var(--surface);
-  border: 1px solid var(--line);
+  border: 1px solid var(--input-border);
   border-radius: var(--radius-control);
   padding: 4px 8px;
 }
@@ -1019,6 +1052,7 @@ select:disabled {
   box-shadow: var(--shadow-card);
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .wallet-hero-top {
@@ -1328,6 +1362,8 @@ select:disabled {
 /* Tactile Wallet Cards Strip */
 .section-block {
   margin-top: 26px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .section-bar {
@@ -1434,6 +1470,7 @@ select:disabled {
   border: 1px solid var(--line);
   border-radius: var(--radius-card);
   box-shadow: var(--shadow-card);
+  min-width: 0;
 }
 
 .surface-card {
@@ -1644,8 +1681,8 @@ select:disabled {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: var(--surface-subtle);
-  border: 1px solid transparent;
+  background: var(--surface);
+  border: 1px solid var(--input-border);
   border-radius: var(--radius-control);
   padding: 0 12px;
   color: var(--muted);
@@ -1678,7 +1715,7 @@ select:disabled {
 
 .filter-select {
   height: 36px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--input-border);
   border-radius: var(--radius-control);
   background: var(--surface);
   color: var(--ink);
@@ -1765,17 +1802,13 @@ select:disabled {
   font-size: 13.5px;
   font-weight: 700;
   color: var(--ink);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
 }
 
 .activity-copy span {
   font-size: 12px;
   color: var(--muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
 }
 
 .activity-amount {
@@ -2197,7 +2230,7 @@ select:disabled {
 .modal input,
 .modal select,
 .modal textarea {
-  border: 1px solid var(--line-strong);
+  border: 1px solid var(--input-border);
   border-radius: var(--radius-control);
   padding: 11px 13px;
   color: var(--ink);
@@ -2411,6 +2444,7 @@ select:disabled {
 /* Login Screen */
 .login-page {
   min-height: 100vh;
+  min-height: 100dvh;
   display: grid;
   place-items: center;
   padding: 24px;
@@ -2476,7 +2510,7 @@ select:disabled {
 .password-input-wrap {
   display: flex;
   align-items: center;
-  border: 1px solid var(--line-strong);
+  border: 1px solid var(--input-border);
   border-radius: var(--radius-control);
   background: var(--bg);
   padding: 0 12px;
@@ -2598,7 +2632,31 @@ select:disabled {
   }
 }
 
-/* Tablet Breakpoint */
+/* Tablet Breakpoint (Auto-collapsed compact rail for balanced 2-column content) */
+@media (max-width: 1040px) and (min-width: 721px) {
+  .sidebar {
+    width: 76px;
+    min-width: 76px;
+    padding: 20px 10px 16px;
+  }
+  .sidebar .brand-text,
+  .sidebar .nav-label,
+  .sidebar .nav-group-label,
+  .sidebar .alert-badge,
+  .collapse-btn {
+    display: none;
+  }
+  .sidebar-top {
+    justify-content: center;
+  }
+  .nav-group button,
+  .sidebar-action,
+  .sidebar-user {
+    justify-content: center;
+    padding: 0;
+  }
+}
+
 @media (max-width: 1040px) {
   .topbar { padding: 0 22px; }
   .content { padding: 0 22px 48px; }
@@ -2696,12 +2754,16 @@ select:disabled {
   }
   .range-dates {
     width: 100%;
+    flex-wrap: wrap;
     justify-content: space-between;
   }
   .range-dates input {
-    flex: 1;
+    flex: 1 1 120px;
+    width: 0;
     min-width: 0;
     min-height: 44px;
+    font-size: 11.5px;
+    padding: 5px 2px;
   }
 
   .primary-button,
@@ -2725,19 +2787,36 @@ select:disabled {
     grid-template-columns: 1fr;
   }
   .wallet-cards-strip {
-    grid-template-columns: 1fr 1fr;
+    display: flex;
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    gap: 12px;
+    padding-bottom: 6px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .wallet-cards-strip .wallet-card {
+    flex: 0 0 208px;
+    scroll-snap-align: start;
+  }
+  .row-actions {
+    gap: 6px;
   }
   .surface-card {
     padding: 18px 16px;
   }
   .table-actions {
     width: 100%;
+    flex-wrap: wrap;
   }
   .search-box {
-    flex: 1;
+    flex: 1 1 140px;
+    min-width: 0;
   }
   .search-box input {
     width: 100%;
+    min-width: 0;
   }
   .form-grid {
     grid-template-columns: 1fr;

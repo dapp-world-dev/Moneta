@@ -1,19 +1,54 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { AlertTriangle, X } from 'lucide-react';
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, THEMES, formatMoney, todayIso } from '../utils';
 
-function useEscapeClose(onClose, disabled = false) {
+const FOCUSABLE_SELECTOR = [
+  'a[href]',
+  'button:not([disabled])',
+  'input:not([disabled])',
+  'select:not([disabled])',
+  'textarea:not([disabled])',
+  '[tabindex]:not([tabindex="-1"])',
+].join(', ');
+
+function useModalA11y(modalRef, onClose, disabled = false) {
+  const [previousFocus] = useState(() => (typeof document !== 'undefined' ? document.activeElement : null));
+
+  useEffect(() => () => {
+    if (previousFocus && typeof previousFocus.focus === 'function' && document.contains(previousFocus)) {
+      requestAnimationFrame(() => previousFocus.focus());
+    }
+  }, [previousFocus]);
+
   useEffect(() => {
     function handleKey(event) {
-      if (event.key === 'Escape' && !disabled) onClose();
+      if (event.key === 'Escape' && !disabled) {
+        onClose();
+        return;
+      }
+      if (event.key !== 'Tab' || !modalRef.current) return;
+      const focusables = Array.from(modalRef.current.querySelectorAll(FOCUSABLE_SELECTOR));
+      if (focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (event.shiftKey) {
+        if (document.activeElement === first || !modalRef.current.contains(document.activeElement)) {
+          event.preventDefault();
+          last.focus();
+        }
+      } else if (document.activeElement === last || !modalRef.current.contains(document.activeElement)) {
+        event.preventDefault();
+        first.focus();
+      }
     }
     document.addEventListener('keydown', handleKey);
     return () => document.removeEventListener('keydown', handleKey);
-  }, [onClose, disabled]);
+  }, [modalRef, onClose, disabled]);
 }
 
 export function TransactionModal({ onClose, onSubmit, accounts, initial = null, saving = false }) {
-  useEscapeClose(onClose, saving);
+  const modalRef = useRef(null);
+  useModalA11y(modalRef, onClose, saving);
   const isEdit = Boolean(initial);
   const defaultType = initial?.type || 'expense';
   const [form, setForm] = useState({
@@ -64,7 +99,7 @@ export function TransactionModal({ onClose, onSubmit, accounts, initial = null, 
 
   return (
     <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && !saving && onClose()}>
-      <form className="modal" onSubmit={handleSubmit} role="dialog" aria-modal="true" aria-labelledby="tx-modal-title">
+      <form ref={modalRef} className="modal" onSubmit={handleSubmit} role="dialog" aria-modal="true" aria-labelledby="tx-modal-title">
         <div className="modal-head">
           <div>
             <span className="modal-kicker">{isEdit ? 'Ubah transaksi' : 'Catat arus kas'}</span>
@@ -170,7 +205,8 @@ export function TransactionModal({ onClose, onSubmit, accounts, initial = null, 
 }
 
 export function BudgetModal({ onClose, onSubmit, existingCategories = [], initial = null, saving = false }) {
-  useEscapeClose(onClose, saving);
+  const modalRef = useRef(null);
+  useModalA11y(modalRef, onClose, saving);
   const isEdit = Boolean(initial);
   const availableCategories = EXPENSE_CATEGORIES.filter((c) => !existingCategories.includes(c));
   const [category, setCategory] = useState(initial?.category || availableCategories[0] || 'Lainnya');
@@ -191,7 +227,7 @@ export function BudgetModal({ onClose, onSubmit, existingCategories = [], initia
 
   return (
     <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && !saving && onClose()}>
-      <form className="modal" onSubmit={handleSubmit} role="dialog" aria-modal="true" aria-labelledby="budget-modal-title">
+      <form ref={modalRef} className="modal" onSubmit={handleSubmit} role="dialog" aria-modal="true" aria-labelledby="budget-modal-title">
         <div className="modal-head">
           <div>
             <span className="modal-kicker">Anggaran periode</span>
@@ -246,7 +282,8 @@ export function BudgetModal({ onClose, onSubmit, existingCategories = [], initia
 }
 
 export function GoalModal({ onClose, onSubmit, saving = false }) {
-  useEscapeClose(onClose, saving);
+  const modalRef = useRef(null);
+  useModalA11y(modalRef, onClose, saving);
   const [name, setName] = useState('');
   const [target, setTarget] = useState('');
   const [saved, setSaved] = useState('0');
@@ -271,7 +308,7 @@ export function GoalModal({ onClose, onSubmit, saving = false }) {
 
   return (
     <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && !saving && onClose()}>
-      <form className="modal" onSubmit={handleSubmit} role="dialog" aria-modal="true" aria-labelledby="goal-modal-title">
+      <form ref={modalRef} className="modal" onSubmit={handleSubmit} role="dialog" aria-modal="true" aria-labelledby="goal-modal-title">
         <div className="modal-head">
           <div>
             <span className="modal-kicker">Kantong tabungan</span>
@@ -329,7 +366,8 @@ export function GoalModal({ onClose, onSubmit, saving = false }) {
 }
 
 export function GoalContributeModal({ goal, onClose, onSubmit, saving = false }) {
-  useEscapeClose(onClose, saving);
+  const modalRef = useRef(null);
+  useModalA11y(modalRef, onClose, saving);
   const [amount, setAmount] = useState('');
   const [error, setError] = useState('');
   const remaining = Math.max(0, goal.target - goal.saved);
@@ -349,7 +387,7 @@ export function GoalContributeModal({ goal, onClose, onSubmit, saving = false })
 
   return (
     <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && !saving && onClose()}>
-      <form className="modal" onSubmit={handleSubmit} role="dialog" aria-modal="true" aria-labelledby="fund-modal-title">
+      <form ref={modalRef} className="modal" onSubmit={handleSubmit} role="dialog" aria-modal="true" aria-labelledby="fund-modal-title">
         <div className="modal-head">
           <div>
             <span className="modal-kicker">Tambah dana target</span>
@@ -407,7 +445,8 @@ export function GoalContributeModal({ goal, onClose, onSubmit, saving = false })
 }
 
 export function AccountModal({ onClose, onSubmit, saving = false }) {
-  useEscapeClose(onClose, saving);
+  const modalRef = useRef(null);
+  useModalA11y(modalRef, onClose, saving);
   const [name, setName] = useState('');
   const [type, setType] = useState('bank');
   const [openingBalance, setOpeningBalance] = useState('0');
@@ -427,7 +466,7 @@ export function AccountModal({ onClose, onSubmit, saving = false }) {
 
   return (
     <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && !saving && onClose()}>
-      <form className="modal" onSubmit={handleSubmit} role="dialog" aria-modal="true" aria-labelledby="acc-modal-title">
+      <form ref={modalRef} className="modal" onSubmit={handleSubmit} role="dialog" aria-modal="true" aria-labelledby="acc-modal-title">
         <div className="modal-head">
           <div>
             <span className="modal-kicker">Dompet dan rekening</span>
@@ -480,7 +519,8 @@ export function AccountModal({ onClose, onSubmit, saving = false }) {
 }
 
 export function ProfileModal({ profile, theme, onSelectTheme, onClose, onSubmit, saving = false }) {
-  useEscapeClose(onClose, saving);
+  const modalRef = useRef(null);
+  useModalA11y(modalRef, onClose, saving);
   const [name, setName] = useState(profile?.name || '');
   const [savingsTarget, setSavingsTarget] = useState(String(profile?.savingsTarget || 20));
   const [error, setError] = useState('');
@@ -503,7 +543,7 @@ export function ProfileModal({ profile, theme, onSelectTheme, onClose, onSubmit,
 
   return (
     <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && !saving && onClose()}>
-      <form className="modal" onSubmit={handleSubmit} role="dialog" aria-modal="true" aria-labelledby="profile-modal-title">
+      <form ref={modalRef} className="modal" onSubmit={handleSubmit} role="dialog" aria-modal="true" aria-labelledby="profile-modal-title">
         <div className="modal-head">
           <div>
             <span className="modal-kicker">Pengaturan</span>
@@ -580,7 +620,12 @@ export function ConfirmModal({
   onConfirm,
   busy = false,
 }) {
-  useEscapeClose(onClose, busy);
+  const modalRef = useRef(null);
+  useModalA11y(modalRef, onClose, busy);
+
+  useEffect(() => {
+    modalRef.current?.querySelector('button.secondary-button')?.focus();
+  }, []);
 
   async function handleConfirm() {
     const ok = await onConfirm();
@@ -589,7 +634,7 @@ export function ConfirmModal({
 
   return (
     <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && !busy && onClose()}>
-      <div className="modal confirm-modal" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title">
+      <div ref={modalRef} className="modal confirm-modal" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title">
         <div className="confirm-head">
           <span className="confirm-icon" aria-hidden="true">
             <AlertTriangle size={20} />

@@ -568,7 +568,7 @@ function App() {
           </div>
         </header>
 
-        <main className={`content ${loading && data ? 'is-loading' : ''}`}>
+        <main id="main-content" tabIndex={-1} className={`content ${loading && data ? 'is-loading' : ''}`}>
           {loadError && (
             <div className="error-banner" role="alert">
               <AlertTriangle size={18} aria-hidden="true" />
@@ -1156,6 +1156,9 @@ function Shell({
 
   return (
     <div className={`app-shell ${sidebarCollapsed ? 'is-collapsed' : ''}`}>
+      <a href="#main-content" className="skip-link">
+        Lewati ke konten utama
+      </a>
       <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`} aria-label="Navigasi utama">
         <div className="sidebar-top">
           <button type="button" className="brand" onClick={() => onNavigate('Overview')} aria-label="Beranda Moneta">

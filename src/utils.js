@@ -48,7 +48,7 @@ export const PERIOD_PRESETS = [
 export const THEMES = [
   { id: 'modern', name: 'Modern', desc: 'Terang & aksen limau', swatches: ['#ffffff', '#f3f4f2', '#c8f35b'] },
   { id: 'dark', name: 'Dark', desc: 'Mode gelap tenang', swatches: ['#111317', '#181b21', '#2563eb'] },
-  { id: 'cool', name: 'Cool', desc: 'Biru modern & segar', swatches: ['#ffffff', '#f1f5f9', '#0075eb'] },
+  { id: 'cool', name: 'Cool', desc: 'Biru modern & segar', swatches: ['#ffffff', '#f1f5f9', '#0068d1'] },
   { id: 'calm', name: 'Calm', desc: 'Hijau sage & hangat', swatches: ['#fffdf9', '#f5f2eb', '#2f855a'] },
   { id: 'cute', name: 'Cute', desc: 'Nuansa pink lembut', swatches: ['#ffffff', '#fdf2f6', '#ec4899'] },
   { id: 'lavender', name: 'Lavender', desc: 'Ungu pastel elegan', swatches: ['#ffffff', '#f5f3ff', '#7c3aed'] },
