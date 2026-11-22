@@ -31,8 +31,12 @@ const PAGE_LABELS = {
   Accounts: 'Akun',
 };
 
+const IDLE_TIMEOUT_MS = 10 * 60 * 1000; // 10 menit
+const KEEPALIVE_INTERVAL_MS = 3 * 60 * 1000; // perpanjang sesi server tiap 3 menit saat aktif
+
 function App() {
   const [authState, setAuthState] = useState({ checked: false, authenticated: false, user: null });
+  const [sessionNotice, setSessionNotice] = useState('');
   const [range, setRange] = useState(currentMonthRange);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -66,18 +70,65 @@ function App() {
       .catch(() => setAuthState({ checked: true, authenticated: false, user: null }));
   }, []);
 
-  async function handleLogout() {
+  async function handleLogout(notice = '') {
     await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
     setOpenMenu(null);
     setData(null);
+    setSessionNotice(notice);
     setAuthState({ checked: true, authenticated: false, user: null });
   }
+
+  // Auto-logout jika diam selama 10 menit
+  useEffect(() => {
+    if (!authState.authenticated) return undefined;
+
+    let lastActivity = Date.now();
+    let lastKeepAlive = Date.now();
+
+    function markActivity() {
+      const now = Date.now();
+      if (now - lastActivity >= IDLE_TIMEOUT_MS) {
+        handleLogout('Sesi berakhir karena tidak ada aktivitas selama 10 menit. Silakan login kembali.');
+        return;
+      }
+      lastActivity = now;
+      if (now - lastKeepAlive >= KEEPALIVE_INTERVAL_MS) {
+        lastKeepAlive = now;
+        fetch('/api/auth/me')
+          .then((res) => res.json())
+          .then((status) => {
+            if (!status.authenticated) {
+              handleLogout('Sesi berakhir karena tidak ada aktivitas selama 10 menit. Silakan login kembali.');
+            }
+          })
+          .catch(() => {});
+      }
+    }
+
+    function checkIdle() {
+      if (Date.now() - lastActivity >= IDLE_TIMEOUT_MS) {
+        handleLogout('Sesi berakhir karena tidak ada aktivitas selama 10 menit. Silakan login kembali.');
+      }
+    }
+
+    const events = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll', 'click'];
+    events.forEach((evt) => window.addEventListener(evt, markActivity, { passive: true }));
+    document.addEventListener('visibilitychange', checkIdle);
+    const interval = setInterval(checkIdle, 15000);
+
+    return () => {
+      events.forEach((evt) => window.removeEventListener(evt, markActivity));
+      document.removeEventListener('visibilitychange', checkIdle);
+      clearInterval(interval);
+    };
+  }, [authState.authenticated]);
 
   async function loadData({ quiet = false } = {}) {
     if (!quiet) setLoading(true);
     try {
       const response = await fetch(`/api/dashboard?from=${range.from}&to=${range.to}`);
       if (response.status === 401) {
+        setSessionNotice('Sesi berakhir karena tidak ada aktivitas selama 10 menit. Silakan login kembali.');
         setAuthState({ checked: true, authenticated: false, user: null });
         return;
       }
@@ -121,6 +172,7 @@ function App() {
         ...(body ? { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {}),
       });
       if (response.status === 401) {
+        setSessionNotice('Sesi berakhir karena tidak ada aktivitas selama 10 menit. Silakan login kembali.');
         setAuthState({ checked: true, authenticated: false, user: null });
         return false;
       }
@@ -286,7 +338,11 @@ function App() {
   if (!authState.authenticated) {
     return (
       <LoginScreen
-        onSuccess={(user) => setAuthState({ checked: true, authenticated: true, user })}
+        notice={sessionNotice}
+        onSuccess={(user) => {
+          setSessionNotice('');
+          setAuthState({ checked: true, authenticated: true, user });
+        }}
       />
     );
   }
@@ -406,7 +462,7 @@ function App() {
                     <button type="button" onClick={() => navigateTo('Accounts')}>
                       <CreditCard size={15} /> Kelola akun keuangan
                     </button>
-                    <button type="button" className="danger-menu-item" onClick={handleLogout}>
+                    <button type="button" className="danger-menu-item" onClick={() => handleLogout('')}>
                       <LogOut size={15} /> Keluar
                     </button>
                   </div>

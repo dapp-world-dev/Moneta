@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, Lock, User } from 'lucide-react';
 
-export function LoginScreen({ onSuccess }) {
+export function LoginScreen({ onSuccess, notice = '' }) {
   const [mode, setMode] = useState('login'); // 'login' | 'register'
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -75,6 +75,7 @@ export function LoginScreen({ onSuccess }) {
             : 'Masuk untuk mengakses dashboard dan laporan keuanganmu.'}
         </p>
 
+        {notice && !error && <div className="form-notice">{notice}</div>}
         {error && <div className="form-error">{error}</div>}
 
         <label className="login-field">

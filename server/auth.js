@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 
 const COOKIE_NAME = 'moneta_session';
-const SESSION_TTL_SEC = 60 * 60 * 24 * 7; // 7 days
+const SESSION_TTL_SEC = 60 * 10; // 10 minutes idle timeout
 
 function sha256(value) {
   return crypto.createHash('sha256').update(String(value)).digest();
@@ -96,9 +96,10 @@ export function createAuth({ secret } = {}) {
   function requireAuth(req, res, next) {
     const session = getSession(req);
     if (!session) {
-      return res.status(401).json({ error: 'Silakan login terlebih dahulu.' });
+      return res.status(401).json({ error: 'Sesi berakhir. Silakan login kembali.' });
     }
     req.userId = session.userId;
+    setSessionCookie(res, session.userId);
     return next();
   }
 

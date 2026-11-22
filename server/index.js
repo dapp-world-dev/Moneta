@@ -76,6 +76,7 @@ export function createApp(options = {}) {
         auth.clearSessionCookie(res);
         return res.json({ authenticated: false, user: null });
       }
+      auth.setSessionCookie(res, user.id);
       return res.json({ authenticated: true, user });
     } catch (error) { return next(error); }
   }

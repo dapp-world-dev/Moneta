@@ -2198,6 +2198,17 @@ button:disabled {
   margin-bottom: 14px;
 }
 
+.form-notice {
+  background: #fff4e2;
+  color: #9e5814;
+  border: 1px solid #f4dcba;
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-size: 12px;
+  line-height: 1.45;
+  margin-bottom: 14px;
+}
+
 .goal-modal-summary {
   display: grid;
   grid-template-columns: 1fr 1fr;
