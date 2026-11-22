@@ -2404,3 +2404,150 @@ button:disabled {
   .modal { padding: 20px; }
   .form-grid { grid-template-columns: 1fr; gap: 0; }
 }
+
+/* Tasteful Micro-Interactions */
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes popIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes backdropFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes statusPulse {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(210, 249, 117, 0.14); }
+  50% { box-shadow: 0 0 0 6px rgba(210, 249, 117, 0.04); }
+}
+
+.page-stage {
+  animation: fadeUp 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.modal-backdrop {
+  animation: backdropFade 0.16s ease-out;
+}
+
+.modal {
+  animation: popIn 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.popover-panel {
+  transform-origin: top right;
+  animation: popIn 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.toast {
+  animation: fadeUp 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.status-dot {
+  animation: statusPulse 2.8s ease-in-out infinite;
+}
+
+.primary-button,
+.secondary-button,
+.danger-button,
+.mini-primary,
+.quick-chip,
+.filter-pill,
+.chart-toggle button,
+.sidebar nav button {
+  transition: background 0.16s ease, color 0.16s ease, border-color 0.16s ease, transform 0.12s ease, box-shadow 0.16s ease;
+}
+
+.primary-button:active:not(:disabled),
+.secondary-button:active:not(:disabled),
+.danger-button:active:not(:disabled),
+.mini-primary:active:not(:disabled),
+.quick-chip:active:not(:disabled),
+.sidebar nav button:active {
+  transform: scale(0.97);
+}
+
+.kpi-card,
+.budget-card {
+  transition: border-color 0.18s ease, box-shadow 0.2s ease, transform 0.18s ease;
+}
+
+.kpi-card:hover,
+.budget-card:hover {
+  border-color: #d2d8ce;
+  box-shadow: 0 6px 18px rgba(23, 25, 26, 0.04);
+  transform: translateY(-1px);
+}
+
+.stat-card {
+  transition: border-color 0.18s ease, box-shadow 0.2s ease, transform 0.18s ease;
+}
+
+.stat-card:hover {
+  box-shadow: 0 6px 18px rgba(23, 25, 26, 0.045);
+}
+
+.stat-arrow,
+.view-all svg {
+  transition: transform 0.18s ease, color 0.18s ease;
+}
+
+.stat-card:hover .stat-arrow {
+  transform: translateX(3px);
+  color: var(--ink);
+}
+
+.view-all:hover svg {
+  transform: translateX(3px);
+}
+
+.transaction-row,
+.account-row,
+.goal-row {
+  transition: background 0.15s ease;
+}
+
+.meter-fill,
+.goal-meter span,
+.progress-fill {
+  transition: width 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.login-card {
+  animation: popIn 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (hover: hover) {
+  .transaction-row .row-actions {
+    opacity: 0.45;
+    transition: opacity 0.16s ease;
+  }
+  .transaction-row:hover .row-actions,
+  .transaction-row:focus-within .row-actions {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

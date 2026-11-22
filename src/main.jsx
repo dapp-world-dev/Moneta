@@ -473,6 +473,7 @@ function App() {
         </header>
 
         <main className={`content ${loading ? 'is-loading' : ''}`}>
+          <div className="page-stage" key={activePage}>
           {activePage === 'Overview' && (
             <>
               <div className="page-heading">
@@ -768,6 +769,7 @@ function App() {
               busyId={busyId}
             />
           )}
+          </div>
         </main>
       </div>
 
